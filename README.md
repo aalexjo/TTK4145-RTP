@@ -6,3 +6,5 @@ This is a repository containing the real time programming project in TTK4145.
   * Cost function
   * Algorithms
 2. Network module
+  * Communication
+3. Testing
