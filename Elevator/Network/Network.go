@@ -1,24 +1,23 @@
-package main
+package network
 
 import (
-	"./network/bcast"
-	"./network/localip"
-	"./network/peers"
 	"flag"
 	"fmt"
 	"os"
-	"time"
+
+	"./network/bcast"
+	"./network/localip"
+	"./network/peers"
 )
 
 // We define some custom struct to send over the network.
 // Note that all members we want to transmit must be public. Any private members
 //  will be received as zero-values.
-type HelloMsg struct {
-	Message string
-	Iter    int
+type UpdateMsg struct {
+	//JSON encoding of relevant update information
 }
 
-func main() {
+func Network(InternalUpdate <-chan UpdateMsg, ExternalUpdate chan<- UpdateMsg) {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
@@ -46,24 +45,11 @@ func main() {
 	go peers.Transmitter(15647, id, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
-	// We make channels for sending and receiving our custom data types
-	helloTx := make(chan HelloMsg)
-	helloRx := make(chan HelloMsg)
-	// ... and start the transmitter/receiver pair on some port
+	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, helloTx)
-	go bcast.Receiver(16569, helloRx)
-
-	// The example message. We just send one of these every second.
-	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
-		for {
-			helloMsg.Iter++
-			helloTx <- helloMsg
-			time.Sleep(1 * time.Second)
-		}
-	}()
+	go bcast.Transmitter(16569, InternalUpdate) //TODO: fix ports
+	go bcast.Receiver(16569, ExternalUpdate)
 
 	fmt.Println("Started")
 	for {
@@ -74,7 +60,7 @@ func main() {
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case a := <-helloRx:
+		case a := <-ExternalUpdate:
 			fmt.Printf("Received: %#v\n", a)
 		}
 	}
