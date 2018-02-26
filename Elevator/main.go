@@ -1,14 +1,12 @@
 package main
 
-import {
-  "fmt"
-  "./Driver/Elevio"
-  //"./Fsm"
-  "./Network/Network"
-  //"./Status"
-}
+import (
+	"./Driver/Elevio"
+	//"./Status"
+)
 
+func main() {
+	numFloors := 4
 
-func main(){
-  
+	elevio.Init("localhost:15657", numFloors)
 }
