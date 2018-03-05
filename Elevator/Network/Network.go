@@ -8,16 +8,14 @@ import (
 	"./network/bcast"
 	"./network/localip"
 	"./network/peers"
+	"../Status"
 )
 
 // We define some custom struct to send over the network.
 // Note that all members we want to transmit must be public. Any private members
 //  will be received as zero-values.
-type UpdateMsg struct {
-	//JSON encoding of relevant update information
-}
 
-func Network(InternalUpdate <-chan UpdateMsg, ExternalUpdate chan<- UpdateMsg) {
+func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.UpdateMsg) {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
@@ -48,7 +46,7 @@ func Network(InternalUpdate <-chan UpdateMsg, ExternalUpdate chan<- UpdateMsg) {
 	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, InternalUpdate) //TODO: fix ports
+	go bcast.Transmitter(16569, StatusUpdate) //TODO: fix ports
 	go bcast.Receiver(16569, ExternalUpdate)
 
 	fmt.Println("Started")
