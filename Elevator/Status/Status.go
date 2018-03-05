@@ -24,7 +24,7 @@ type Status_Struct struct {
 	states       []state
 }
 
-type state struct {
+type State struct {
 	behaviour   []int //change to enum-ish?
 	floor       []uint
 	direction   []int

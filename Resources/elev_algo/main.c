@@ -1,4 +1,4 @@
-
++
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,18 +11,18 @@
 
 int main(void){
     printf("Started!\n");
-    
+
     int inputPollRate_ms = 25;
     con_load("elevator.con",
-        con_val("inputPollRate_ms", &inputPollRate_ms, "%d")
+    con_val("inputPollRate_ms", &inputPollRate_ms, "%d")
     )
-    
-    ElevInputDevice input = elevio_getInputDevice();    
-    
+
+    ElevInputDevice input = elevio_getInputDevice();
+
     if(input.floorSensor() == -1){
         fsm_onInitBetweenFloors();
     }
-        
+
     while(1){
         { // Request button
             static int prev[N_FLOORS][N_BUTTONS];
@@ -36,7 +36,7 @@ int main(void){
                 }
             }
         }
-        
+
         { // Floor sensor
             static int prev;
             int f = input.floorSensor();
@@ -45,24 +45,15 @@ int main(void){
             }
             prev = f;
         }
-        
-        
+
+
         { // Timer
             if(timer_timedOut()){
                 fsm_onDoorTimeout();
                 timer_stop();
             }
         }
-        
+
         usleep(inputPollRate_ms*1000);
     }
 }
-
-
-
-
-
-
-
-
-
