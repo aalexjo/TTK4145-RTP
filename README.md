@@ -8,3 +8,4 @@ This is a repository containing the real time programming project in TTK4145.
 2. Network module
   * Communication
 3. Testing
+4. Clean up elev_algo, files.
