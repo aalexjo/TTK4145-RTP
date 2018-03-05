@@ -2,40 +2,31 @@ package main
 
 import (
 	"./Driver/Elevio"
-	//"./Status"
+	"./Status"
 	"./Network"
 
 
 )
 
-type UpdateMsg struct{
 
-}
-
-type somthing struct{
-updateType
-
- floor int
- buttonType int
-	arrivedAtfloor int
-
-}
 FLOORS := 4
 ELEVATORS := 3
 
 func main() {
+	AssignGlobals()
 
-
-	InternalUpdate := make(chan UpdateMsg) //sends updates that occured in this node to the network module
-	ExternalUpdate := make(chan UpdateMsg) //sends updates that occured in the network to the status module
+	StatusUpdate := make(chan Status.UpdateMsg) //sends updates that occured in the network to the status module
+	NetworkUpdate := make(chan Status.UpdateMsg)
+	ElevStatus := make(chan Status.Status_Struct)
 	elevio.Init("localhost:15657", FLOORS)
 
-	go network.Network(InternalUpdate, ExternalUpdate)
-	go status.Status(InternalUpdate, ExternalUpdate)
+	go network.Network(StatusUpdate, NetworkUpdate)
+	go status.Status(ElevStatus, StatusUpdate)
+	go fsm.Fsm(NetworkUpdate)
+}
 
-	//numFloors := 4
-
-	//elevio.Init("localhost:15657", numFloors)
-	fsm.CalculateOptimalElevator("test")
+func AssignGlobals(){
+	Status.FLOORS = FLOORS
+	Status.FLOORS = FLOORS
 
 }

@@ -1,33 +1,21 @@
 package fsm
 
 import (
-  "./Driver/elevio"
+  "../Driver/Elevio"
   //"fmt"
   //"os/exec"
   //"bytes"
   //"log"
-  "./Status/status"
+  "../Status"
 )
 
-// func OnInitBetweenFloors(){ //
-//   elevio.SetMotorDirection(elevio.MD_Down)
-//   //TODO: Update status w direction of travel
-// }
 
-//Denne funker ikke...
-// func CalculateOptimalElevator(status string){
-//   cmd := exec.Command("hall_request_assigner", "--input");
-//   //cmd.Stdin = '{"hallRequests":[[false,false],[true,false],[false,false],[false,true]],"states":{"one":{"behaviour":"moving","floor":2,"direction":"up","cabRequests":[false,false,true,true]},"two":{"behaviour":"idle","floor":0,"direction":"stop","cabRequests":[false,false,false,false]}}}';
-//   var out bytes.Buffer
-// 	cmd.Stdout = &out
-//   err := cmd.Run()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-//   fmt.Printf("in all caps: %q\n", out.String())
-// }
+//#TODO: allow communication between modules,
 
-func main(){
+
+
+
+func Fsm(NetworkUpdate chan<- status.Status_struct, ElevStatus <-chan UpdateMsg){
   var updateMessage status.UpdateMsg
   numFloors := 4
 
@@ -35,26 +23,35 @@ func main(){
 
   in_buttons := make(chan elevio.ButtonEvent)
   in_floors  := make(chan int)
-  out_msg    := make(chan status.UpdateMsg)
+  //out_msg    := make(chan status.UpdateMsg)
 
-  go elevio.PollButtons(drv_buttons)
-  go elevio.PollFloorSensor(drv_floors)
+  go elevio.PollButtons(in_buttons)
+  go elevio.PollFloorSensor(in_floors)
 
 
   for {
       select {
-      case a := <- drv_buttons:
-        if a.Button < 2 {
-          updateMessage.msgType = 0 //Hall request
+      case a := <- in_buttons:
+        if a.Button < 2 { // If hall request
+          updateMessage.MsgType = 0
+          updateMessage.Button = a.Button;
+          updateMessage.Floor = a.Floor;
         }
         else {
-          updateMessage.msgType = 4 //Cab request
-        }
-        updateMessage.update[0] = //FLoor og knapp
-        out_msg <- updateMessage;
+          updateMessage.MsgType = 4 //Cab request
 
-      case a := <- drv_floors:
-          //Handle
+          //TODO: Hvordan legge til hvilken elevator det er snakk om??
+          updateMessage.Floor = a.Floor;
+        }
+        updateMessage.update[0] = //Floor og knapp
+        //out_msg <- updateMessage;
+
+      case a := <- in_floors:
+          updateMessage.MsgType = 2; //Arrived at floor
+          updateMessage.Floor = a;
+
+          //TODO: HVordan legge til hvilken elevator det er snakk om??
+          //out_msg <- updateMessage;
       }
   }
 
