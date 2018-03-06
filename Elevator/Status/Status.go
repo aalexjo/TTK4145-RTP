@@ -41,16 +41,6 @@ idle	//behaviour of elev 3
 .
 */
 
-const(
-	idle = iota
-	moving
-	doorOpen
-)
-const(
-	up = iota
-	down
-	stop
-)
 
 type UpdateMsg struct {
 	//encoding of relevant update information
@@ -70,16 +60,20 @@ type UpdateMsg struct {
 }
 
 type Status_Struct struct {
-	HallRequests [][]bool `json:"hallRequests`
-	States       []State `json:"states"`
-
+	HallRequests [][]bool `json:"hallRequests"`
+	States       State `json:"states"`
 }
 
-type State struct {
-	Behaviour   string `json:"behaviour`
+type State struct{
+	One State_Values
+	Two State_Values
+}
+
+type State_Values struct {
+	Behaviour   string `json:"behaviour"`
 	Floor       uint `json:"floor"`
-	Direction   string `json:"Direction"'`
-	CabRequests []bool `json:"cabRequest`
+	Direction   string `json:"direction"`
+	CabRequests []bool `json:"cabRequest"`
 }
 
 func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
@@ -88,8 +82,23 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
 	//check(err)
 	------------------------------------------------------------------------*/
 
-	var status Status_Struct //TODO: initialize status from file
-
+	status := Status_Struct{ //TODO: initialize with correct values
+							HallRequests: [][]bool{{false,false},{false,false},{false,false},{false,false}},
+							States: State{
+										One: State_Values{
+											Behaviour: "moving",
+											Floor: 2,
+											Direction: "up",
+											CabRequests: []bool{false,false,false,true},
+											},
+										Two: State_Values{
+											Behaviour: "moving",
+											Floor: 2,
+											Direction: "up",
+											CabRequests: []bool{false,false,false,true},
+											},
+									 	},
+							 }
 	for {
 		select {
 			case message := <-StatusUpdate:

@@ -55,7 +55,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         elevio.SetButtonLamp(newOrder.button, newOrder.Floor, true)
         switch elev_state.Behaviour {
 
-        case Idle: //Heisen står i ro
+        case "idle": //Heisen står i ro
           elev_state.Direction = chooseDirection(elev_state)
           elevio.SetMotorDirection(elev_state.Direction)
           if elev_state.Direction == elevio.MD_Stop { //Kan dette muligens skje mellom stasjoner???
@@ -67,8 +67,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
           } else {
             //elev_state.Behaviour = Moving
           }
-        case Moving:
-        case DoorOpen:
+        case "moving":
+        case "doorOpen":
           if elev_state.Floor == newOrder.Floor {
             door_timed_out.Reset(3 * time.Second)
             elev_state = clearAtCurrentFloor(elev_state)
