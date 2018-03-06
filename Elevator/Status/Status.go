@@ -64,21 +64,22 @@ type UpdateMsg struct {
 	Elevator int //used in all other than 0
 	Floor    int //used in 0,2,4
 	Button   int //used in 0
-	Direction int //used in 3
+	Behaviour string //used in 1
+	Direction string //used in 3
 	ServedOrder bool //used in 0, 4 - true if the elevator har completed an order and wants to clear it
 }
 
 type Status_Struct struct {
-	HallRequests [][]bool
-	States       []State
+	HallRequests [][]bool 'json:"hallRequests'
+	States       []State 'json:"states"'
 
 }
 
 type State struct {
-	Behaviour   int //change to enum-ish?
-	Floor       uint
-	Direction   int
-	CabRequests []bool
+	Behaviour   string 'json:"behaviour'
+	Floor       uint 'json:"floor"'
+	Direction   string 'json:"Direction"'
+	CabRequests []bool ' json:"cabRequest'
 }
 
 func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
