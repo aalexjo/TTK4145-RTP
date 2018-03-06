@@ -22,7 +22,7 @@ func main() {
 
 	go network.Network(StatusUpdate, NetworkUpdate)
 	go status.Status(ElevStatus, StatusUpdate)
-	go fsm.Fsm(NetworkUpdate)
+	go fsm.Fsm(NetworkUpdate, StatusUpdate)
 }
 
 func AssignGlobals(){
