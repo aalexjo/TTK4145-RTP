@@ -69,7 +69,7 @@ type UpdateMsg struct {
 }
 
 type Status_Struct struct {
-	HallRequests [][]bool
+	HallRequests [][]bool 'json:"hall'
 	States       []state
 }
 

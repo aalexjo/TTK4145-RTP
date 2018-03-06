@@ -18,11 +18,13 @@ func main() {
 	StatusUpdate := make(chan Status.UpdateMsg) //sends updates that occured in the network to the status module
 	NetworkUpdate := make(chan Status.UpdateMsg)
 	ElevStatus := make(chan Status.Status_Struct)
+	HallRequests := make(chan cost.Order_Struct)
 	elevio.Init("localhost:15657", FLOORS)
 
 	go network.Network(StatusUpdate, NetworkUpdate)
 	go status.Status(ElevStatus, StatusUpdate)
 	go fsm.Fsm(NetworkUpdate, StatusUpdate)
+	go cost.Cost(HallRequests, ElevStatus)
 }
 
 func AssignGlobals(){
