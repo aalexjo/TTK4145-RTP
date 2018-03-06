@@ -15,11 +15,11 @@ var ELEVATORS int
 var BUTTONS int
 
 type State struct {
-  //behaviour   []int //change to enum-ish?
-  floor       int
-  //orders      [FLOORS][BUTTONS]int //[floor][btn] for all floors
-  orders      [][]bool
-  direction   elevio.MotorDirection
+  Behaviour   []int //change to enum-ish?
+  Floor       int
+  //Orders      [FLOORS][BUTTONS]int //[floor][btn] for all floors
+  Orders      [][]bool
+  Direction   elevio.MotorDirection
 }
 
 //var elev_state State;
@@ -32,7 +32,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
   var updateMessage status.UpdateMsg
   numFloors := 4
 
-  elevio.Init("localhost:15657", numFloors)
+  //elevio.Init("localhost:15657", numFloors)
 
   in_buttons := make(chan elevio.ButtonEvent)
   in_floors  := make(chan int)
@@ -47,7 +47,37 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
   for {
       select {
+        /*----------CASE for handling new orders. using a newOrder struct temporarily until
+        final behaviour is decided.------------*/
+      case newOrder := <- newOrderChannel:
+        elev_state.Orders[newOrder.Floor][newOrder.button] = true
+        elevio.SetButtonLamp(newOrder.button, newOrder.Floor, true)
+        switch elev_state.Behaviour {
+
+        case Idle: //Heisen står i ro
+          elev_state.Direction = chooseDirection(elev_state)
+          elevio.SetMotorDirection(elev_state.Direction)
+          if elev_state.Direction == elevio.MD_stop { //Kan dette muligens skje mellom stasjoner???
+            elevio.SetDoorOpenLamp(true)
+            door_timed_out.reset(3 * time.Second)
+            //elev_state.state = DOOR_OPEN???
+            elev_state = clearAtCurrentFloor(elev_state)
+            setAllLights(elev_state)
+          } else {
+            //elev_state.Behaviour = Moving
+          }
+        case Moving:
+        case DoorOpen:
+          if elevator.Floor == newOrder.Floor {
+            door_timed_out.reset(3 * time.Second)
+            elev_state = clearAtCurrentFloor(elev_state)
+            setAllLights(elev_state)
+          }
+
+        }
+
       case a := <- in_buttons:
+        /*----Making update message ----*/
         if a.Button < 2 { // If hall request
           updateMessage.MsgType = 0
           updateMessage.Button = a.Button;
@@ -61,9 +91,12 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         //updateMessage.update[0] = //Floor og knapp
         NetworkUpdate <- updateMessage;
 
-      case elev_state.floor = <- in_floors:
+        /*-----Handling Elevator stuff--------*/
+
+
+      case elev_state.Floor = <- in_floors:
           updateMessage.MsgType = 2; //Arrived at floor
-          updateMessage.Floor = elev_state.floor;
+          updateMessage.Floor = elev_state.Floor;
 
           //TODO: HVordan legge til hvilken elevator det er snakk om?? eeeller trengs det nå?
           NetworkUpdate <- updateMessage;
@@ -75,6 +108,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
             door_timed_out.reset(3 * time.Second)
             //elev_state.state = DOOR_OPEN???
             elev_state = clearAtCurrentFloor(elev_state)
+            setAllLights(elev_state)
             //^clears orders in the loca state variable. Needs to send an update message??
             //TODO: Send order cleared message to other peers
           }
@@ -82,13 +116,13 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
       case a:= <- door_timed_out:
         elevio.SetDoorOpenLamp(false);
-        elev_state.direction = chooseDirection(elev_state)
+        elev_state.Direction = chooseDirection(elev_state)
         //TODO: Handle state/behaviour update??
-        if(elev_state.direction == elevio.MD_Stop) {
+        if(elev_state.Direction == elevio.MD_Stop) {
           //elev_state.state = IDLE
         } else{
           //elev_state.state = MOVING
-          elelio.SetMotorDirection(elev_state.direction)
+          elevio.SetMotorDirection(elev_state.Direction)
         }
       }
   }
@@ -98,9 +132,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
 
 func requestsAbove(elev_state State) bool {
-  for floor := elev_state.floor+1; floor < FLOORS; floor++ {
+  for floor := elev_state.Floor+1; floor < FLOORS; floor++ {
     for button := 0; button < BUTTONS; button++ {
-      if elev_state.orders[floor][button] {
+      if elev_state.Orders[floor][button] {
         return true
       }
     }
@@ -112,7 +146,7 @@ func requestsAbove(elev_state State) bool {
 func requestsBelow(elev_state State) bool {
   for floor := 0; floor < elev_state.floor; floor++ {
     for button := 0; button < BUTTONS; button++ {
-      if elev_state.orders[floor][button] {
+      if elev_state.Orders[floor][button] {
         return true
       }
     }
@@ -123,7 +157,7 @@ func requestsBelow(elev_state State) bool {
 
 //Choose direction of travel
 func chooseDirection(elev_state State) elevio.MotorDirection {
-  switch elev_state.direction {
+  switch elev_state.Direction {
   case elevio.MD_Up:
     if requestsAbove(elev_state) {
       return elevio.MD_Up
@@ -153,12 +187,12 @@ func chooseDirection(elev_state State) elevio.MotorDirection {
 
 //Called when elevator reaches new floor, returns 1 if it should stop
 func shouldStop(elev_state State) bool {
-  switch elev_state.direction {
+  switch elev_state.Direction {
   case elevio.MD_Down:
-    return elev_state.orders[elev_state.floor][elevio.BT_HallDown] || elev_state.orders[elev_state.floor][elevio.BT_Cab] || !requestsBelow(elev_state)
+    return elev_state.Orders[elev_state.Floor][elevio.BT_HallDown] || elev_state.Orders[elev_state.Floor][elevio.BT_Cab] || !requestsBelow(elev_state)
 
   case elevio.MD_Up:
-    return elev_state.orders[elev_state.floor][elevio.BT_HallUp] || elev_state.orders[elev_state.floor][elevio.BT_Cab] || !requestsAbove(elev_state)
+    return elev_state.Orders[elev_state.Floor][elevio.BT_HallUp] || elev_state.Orders[elev_state.Floor][elevio.BT_Cab] || !requestsAbove(elev_state)
 
   case elevio.MD_Stop:
   default:
@@ -170,25 +204,33 @@ func shouldStop(elev_state State) bool {
 
 //Clear order only if elevator is travelling in the right direction. RETURNS updated state!
 func clearAtCurrentFloor(elev_state State) State{
-    elev_state.orders[elev_state.floor][elevio.BT_Cab] = false
-    switch elev_state.direction {
+    elev_state.Orders[elev_state.Floor][elevio.BT_Cab] = false
+    switch elev_state.Direction {
 
     case elevio.MD_Up:
-      elev_state.orders[elev_state.floor][elevio.BT_HallUp] = false
+      elev_state.Orders[elev_state.Floor][elevio.BT_HallUp] = false
       if !requestsAbove(elev_state) {
-        elev_state.orders[elev_state.floor][elevio.BT_HallDown] = false
+        elev_state.Orders[elev_state.Floor][elevio.BT_HallDown] = false
       }
 
     case elevio.MD_Down:
-      elev_state.orders[elev_state.floor][elevio.BT_HallDown] = false
+      elev_state.Orders[elev_state.Floor][elevio.BT_HallDown] = false
       if !requestsBelow(elev_state) {
-        elev_state.orders[elev_state.floor][elevio.BT_HallUp] = false
+        elev_state.Orders[elev_state.Floor][elevio.BT_HallUp] = false
       }
 
     case elevio.MD_Stop:
     default:
-      elev_state.orders[elev_state.floor][elevio.BT_HallDown] = false
-      elev_state.orders[elev_state.floor][elevio.BT_HallUp] = false
+      elev_state.Orders[elev_state.Floor][elevio.BT_HallDown] = false
+      elev_state.Orders[elev_state.floor][elevio.BT_HallUp] = false
     }
     return elev_state
+}
+
+
+func setAllLights(elev_state State) {
+  for floor := 0; floor < FLOORS; floor++ {
+    for button := 0; button < BUTTONS; button++ {
+      elevio.SetButtonLamp(button, floor, elev_state[floor][button])
+    }
 }

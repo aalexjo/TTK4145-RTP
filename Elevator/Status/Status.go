@@ -80,7 +80,7 @@ type State struct {
 	CabRequests []bool
 }
 
-func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
+func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
 	file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
 	check(err)
 
