@@ -6,12 +6,12 @@ import (
 
 var FLOORS int
 var ELEVATORS int
-/* 
+/*
 JSON format for saving the status
 {
-    "hallRequests" : 
+    "hallRequests" :
         [[Boolean, Boolean], ...],
-    "states" : 
+    "States" :
         {
             "id_1" : {
                 "behaviour"     : < "idle" | "moving" | "doorOpen" >
@@ -30,7 +30,7 @@ format of status.txt
 idle 	//behaviour of elev 1
 2		//floor of elev 1
 stop	//direction of elev 1
-0000	//cab requests of elev 1 
+0000	//cab requests of elev 1
 moving	//behaviour of elev 2
 2		//floor of elev 2
 up 		//direction of elev 2
@@ -48,7 +48,7 @@ const(
 )
 const(
 	up = iota
-	down 
+	down
 	stop
 )
 
@@ -70,10 +70,10 @@ type UpdateMsg struct {
 
 type Status_Struct struct {
 	HallRequests [][]bool
-	States       []state
+	States       []State
 }
 
-type state struct {
+type State struct {
 	Behaviour   int //change to enum-ish?
 	Floor       uint
 	Direction   int
@@ -99,20 +99,20 @@ func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
 							//TODO write to file
 						}
 					case 1://new Behaviour
-						status.states[message.Elevator].Behaviour = message.Behaviour 
+						status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
 					case 2://arrived at floor
-						status.states[message.Elevator].Floor = message.Floor
+						status.States[message.Elevator].Floor = message.Floor
 						//TODO: write to file
 					case 3://new direction
-						status.states[message.Elevator].Direction = message.Direction
+						status.States[message.Elevator].Direction = message.Direction
 						//TODO: write to file
 					case 4://cab request
 						if ServedOrder {
-							status.states[message.Elevator].CabRequests[message.Floor] = 0
+							status.States[message.Elevator].CabRequests[message.Floor] = 0
 							//TODO write to file
 						}else{
-							status.states[message.Elevator].CabRequests[message.Floor] = 1
+							status.States[message.Elevator].CabRequests[message.Floor] = 1
 							//TODO write to file
 						}
 
