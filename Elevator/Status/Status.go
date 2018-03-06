@@ -21,12 +21,12 @@ type UpdateMsg struct {
 
 type Status_Struct struct {
 	HallRequests [][]bool
-	States       []state
+	States       []State
 }
 
-type state struct {
+type State struct {
 	Behaviour   []int //change to enum-ish?
-	Floor       []uint
+	Floor       []int
 	Direction   []int
 	CabRequests []bool
 }

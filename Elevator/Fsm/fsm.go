@@ -2,6 +2,7 @@ package fsm
 
 import (
   "../Driver/Elevio"
+  "time"
   //"fmt"
   //"os/exec"
   //"bytes"
@@ -27,8 +28,7 @@ type State struct {
 //#TODO: allow communication between modules,
 
 
-
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_struct){
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_struct, elev_state State){ // Remove elev_state and change to the channel?? (From status)
   var updateMessage status.UpdateMsg
   numFloors := 4
 
@@ -36,7 +36,10 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
   in_buttons := make(chan elevio.ButtonEvent)
   in_floors  := make(chan int)
-  
+
+   //Channel for door timer. Bruk door_timed_out.reset(3 * time.Second) når døren åpnes
+  door_timed_out := time.NewTimer(3 * time.Second)
+  door_timed_out.stop()
 
   go elevio.PollButtons(in_buttons)
   go elevio.PollFloorSensor(in_floors)
@@ -49,22 +52,44 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
           updateMessage.MsgType = 0
           updateMessage.Button = a.Button;
           updateMessage.Floor = a.Floor;
-        }
-        else {
+        }else {
           updateMessage.MsgType = 4 //Cab request
 
           //TODO: Hvordan legge til hvilken elevator det er snakk om??
           updateMessage.Floor = a.Floor;
         }
-        updateMessage.update[0] = //Floor og knapp
+        //updateMessage.update[0] = //Floor og knapp
         NetworkUpdate <- updateMessage;
 
-      case a := <- in_floors:
+      case elev_state.floor = <- in_floors:
           updateMessage.MsgType = 2; //Arrived at floor
-          updateMessage.Floor = a;
+          updateMessage.Floor = elev_state.floor;
 
-          //TODO: HVordan legge til hvilken elevator det er snakk om??
+          //TODO: HVordan legge til hvilken elevator det er snakk om?? eeeller trengs det nå?
           NetworkUpdate <- updateMessage;
+
+          //Handling elevator stuff
+          if shouldStop(elev_state) {
+            elevio.SetMotorDirection(elevio.MD_Stop)
+            elevio.SetDoorOpenLamp(true)
+            door_timed_out.reset(3 * time.Second)
+            //elev_state.state = DOOR_OPEN???
+            elev_state = clearAtCurrentFloor(elev_state)
+            //^clears orders in the loca state variable. Needs to send an update message??
+            //TODO: Send order cleared message to other peers
+          }
+
+
+      case a:= <- door_timed_out:
+        elevio.SetDoorOpenLamp(false);
+        elev_state.direction = chooseDirection(elev_state)
+        //TODO: Handle state/behaviour update??
+        if(elev_state.direction == elevio.MD_Stop) {
+          //elev_state.state = IDLE
+        } else{
+          //elev_state.state = MOVING
+          elelio.SetMotorDirection(elev_state.direction)
+        }
       }
   }
 
@@ -83,6 +108,7 @@ func requestsAbove(elev_state State) bool {
   return false
 }
 
+
 func requestsBelow(elev_state State) bool {
   for floor := 0; floor < elev_state.floor; floor++ {
     for button := 0; button < BUTTONS; button++ {
@@ -93,6 +119,7 @@ func requestsBelow(elev_state State) bool {
   }
   return false
 }
+
 
 //Choose direction of travel
 func chooseDirection(elev_state State) elevio.MotorDirection {
@@ -122,6 +149,8 @@ func chooseDirection(elev_state State) elevio.MotorDirection {
   return elevio.MD_Stop
 }
 
+
+
 //Called when elevator reaches new floor, returns 1 if it should stop
 func shouldStop(elev_state State) bool {
   switch elev_state.direction {
@@ -137,6 +166,7 @@ func shouldStop(elev_state State) bool {
   }
   return true
 }
+
 
 //Clear order only if elevator is travelling in the right direction. RETURNS updated state!
 func clearAtCurrentFloor(elev_state State) State{
