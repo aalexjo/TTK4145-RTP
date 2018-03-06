@@ -69,9 +69,13 @@ type UpdateMsg struct {
 }
 
 type Status_Struct struct {
+<<<<<<< HEAD
+	HallRequests [][]bool 'json:"hall'
+	States       []state
+=======
 	HallRequests [][]bool
 	States       []State
-
+>>>>>>> c7d81e5dfeb6cd43bb8af8519cec3dbb9c3b4e7e
 }
 
 type State struct {
