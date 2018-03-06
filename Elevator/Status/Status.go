@@ -1,7 +1,7 @@
 package status
 
 import (
-	"os"
+	//"os"
 )
 
 var FLOORS int
@@ -62,7 +62,7 @@ type UpdateMsg struct {
 	// 3 = newDirection
 	// 4 = cabRequest
 	Elevator int //used in all other than 0
-	Floor    int //used in 0,2,4
+	Floor    uint //used in 0,2,4
 	Button   int //used in 0
 	Behaviour string //used in 1
 	Direction string //used in 3
@@ -70,21 +70,23 @@ type UpdateMsg struct {
 }
 
 type Status_Struct struct {
-	HallRequests [][]bool 'json:"hallRequests'
-	States       []State 'json:"states"'
+	HallRequests [][]bool `json:"hallRequests`
+	States       []State `json:"states"`
 
 }
 
 type State struct {
-	Behaviour   string 'json:"behaviour'
-	Floor       uint 'json:"floor"'
-	Direction   string 'json:"Direction"'
-	CabRequests []bool ' json:"cabRequest'
+	Behaviour   string `json:"behaviour`
+	Floor       uint `json:"floor"`
+	Direction   string `json:"Direction"'`
+	CabRequests []bool `json:"cabRequest`
 }
 
-func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
-	file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
-	check(err)
+func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
+	/* ------------Commented out block until file is used-------------------
+	//file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
+	//check(err)
+	------------------------------------------------------------------------*/
 
 	var status Status_Struct //TODO: initialize status from file
 
@@ -93,11 +95,11 @@ func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
 			case message := <-StatusUpdate:
 				switch message.MsgType{
 					case 0://hall request
-						if ServedOrder{
-							status.HallRequests[message.Floor][Button] = 0
+						if message.ServedOrder{
+							status.HallRequests[message.Floor][message.Button] = false
 							//TODO write to file
 						}else{
-							status.HallRequests[message.Floor][Button] = 1
+							status.HallRequests[message.Floor][message.Button] = true
 							//TODO write to file
 						}
 					case 1://new Behaviour
@@ -110,11 +112,11 @@ func Status(ElevStatus chan<- Status_struct, StatusUpdate <-chan UpdateMsg) {
 						status.States[message.Elevator].Direction = message.Direction
 						//TODO: write to file
 					case 4://cab request
-						if ServedOrder {
-							status.States[message.Elevator].CabRequests[message.Floor] = 0
+						if message.ServedOrder {
+							status.States[message.Elevator].CabRequests[message.Floor] = false
 							//TODO write to file
 						}else{
-							status.States[message.Elevator].CabRequests[message.Floor] = 1
+							status.States[message.Elevator].CabRequests[message.Floor] = true
 							//TODO write to file
 						}
 
