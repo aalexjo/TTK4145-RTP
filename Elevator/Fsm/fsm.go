@@ -163,7 +163,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 }
 
 
-
 func requestsAbove(elev_state State) bool {
   for floor := elev_state.Floor+1; floor < FLOORS; floor++ {
     for button := 0; button < BUTTONS; button++ {
@@ -216,7 +215,6 @@ func chooseDirection(elev_state State) elevio.MotorDirection {
   }
   return elevio.MD_Stop
 }
-
 
 
 //Called when elevator reaches new floor, returns 1 if it should stop
