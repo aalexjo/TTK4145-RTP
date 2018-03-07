@@ -47,7 +47,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.U
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
 	go bcast.Transmitter(16569, StatusUpdate) //TODO: fix ports
-	go bcast.Receiver(16569, ExternalUpdate)
+	go bcast.Receiver(16569, NetworkUpdate)
 
 	fmt.Println("Started")
 	for {
@@ -58,7 +58,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.U
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case a := <-ExternalUpdate:
+		case a := <- NetworkUpdate:
 			fmt.Printf("Received: %#v\n", a)
 		}
 	}

@@ -52,7 +52,7 @@ type UpdateMsg struct {
 	// 3 = newDirection
 	// 4 = cabRequest
 	Elevator int //used in all other than 0
-	Floor    uint //used in 0,2,4
+	Floor    int //used in 0,2,4
 	Button   int //used in 0
 	Behaviour string //used in 1
 	Direction string //used in 3
@@ -71,7 +71,7 @@ type State struct{
 
 type State_Values struct {
 	Behaviour   string `json:"behaviour"`
-	Floor       uint `json:"floor"`
+	Floor       int `json:"floor"`
 	Direction   string `json:"direction"`
 	CabRequests []bool `json:"cabRequest"`
 }
@@ -112,20 +112,20 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
 							//TODO write to file
 						}
 					case 1://new Behaviour
-						status.States[message.Elevator].Behaviour = message.Behaviour
+						//status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
 					case 2://arrived at floor
-						status.States[message.Elevator].Floor = message.Floor
+						//status.States[message.Elevator].Floor = message.Floor
 						//TODO: write to file
 					case 3://new direction
-						status.States[message.Elevator].Direction = message.Direction
+						//status.States[message.Elevator].Direction = message.Direction
 						//TODO: write to file
 					case 4://cab request
 						if message.ServedOrder {
-							status.States[message.Elevator].CabRequests[message.Floor] = false
+							//status.States[message.Elevator].CabRequests[message.Floor] = false
 							//TODO write to file
 						}else{
-							status.States[message.Elevator].CabRequests[message.Floor] = true
+							//status.States[message.Elevator].CabRequests[message.Floor] = true
 							//TODO write to file
 						}
 

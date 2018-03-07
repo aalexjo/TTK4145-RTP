@@ -3,23 +3,28 @@ package fsm
 import (
   "../Driver/Elevio"
   "time"
-  //"fmt"
+  "fmt"
   //"os/exec"
   //"bytes"
   //"log"
   "../Status"
 )
 
-var FLOORS uint
-var ELEVATORS int
-var BUTTONS int
+const FLOORS = 4
+const ELEVATORS = 1
+const BUTTONS = 3
 
 type State struct {
-  Behaviour   []int //change to enum-ish?
-  Floor       uint
+  Behaviour   string
+  Floor       int
   //Orders      [FLOORS][BUTTONS]int //[floor][btn] for all floors
   Orders      [][]bool
   Direction   elevio.MotorDirection
+}
+
+type NewOrder struct {
+  Floor int
+  Button elevio.ButtonType
 }
 
 //var elev_state State;
@@ -29,14 +34,11 @@ type State struct {
 //places and change to Status' state struct?
 
 
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_Struct, elev_state State){ // Remove elev_state and change to the channel?? (From status)
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_Struct, elev_state State, newOrderChannel chan NewOrder){ // Remove elev_state and change to the channel?? (From status)
   var updateMessage status.UpdateMsg
-  numFloors := 4
-
-  //elevio.Init("localhost:15657", numFloors)
 
   in_buttons := make(chan elevio.ButtonEvent)
-  in_floors  := make(chan uint)
+  in_floors  := make(chan int)
 
    //Channel for door timer. Bruk door_timed_out.reset(3 * time.Second) når døren åpnes
   door_timed_out := time.NewTimer(3 * time.Second)
@@ -45,14 +47,18 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
   go elevio.PollButtons(in_buttons)
   go elevio.PollFloorSensor(in_floors)
 
+  //TESTGREIE:--------
+  //elevio.SetMotorDirection(elevio.MD_Up)
+  //TESTGREIE SLUTT---------
+
 
   for {
       select {
         /*----------CASE for handling new orders. using a newOrder struct temporarily until
         final behaviour is decided.------------*/
       case newOrder := <- newOrderChannel:
-        elev_state.Orders[newOrder.Floor][newOrder.button] = true
-        elevio.SetButtonLamp(newOrder.button, newOrder.Floor, true)
+        elev_state.Orders[newOrder.Floor][int(newOrder.Button)] = true
+        elevio.SetButtonLamp(newOrder.Button, newOrder.Floor, true)
         switch elev_state.Behaviour {
 
         case "idle": //Heisen står i ro
@@ -61,11 +67,11 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
           if elev_state.Direction == elevio.MD_Stop { //Kan dette muligens skje mellom stasjoner???
             elevio.SetDoorOpenLamp(true)
             door_timed_out.Reset(3 * time.Second)
-            //elev_state.state = DOOR_OPEN???
+            elev_state.Behaviour = "doorOpen"
             elev_state = clearAtCurrentFloor(elev_state)
             setAllLights(elev_state)
           } else {
-            //elev_state.Behaviour = Moving
+            elev_state.Behaviour = "moving"
           }
         case "moving":
         case "doorOpen":
@@ -82,12 +88,12 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         if a.Button < 2 { // If hall request
           updateMessage.MsgType = 0
           updateMessage.Button = int(a.Button);
-          updateMessage.Floor = uint(a.Floor);
+          updateMessage.Floor = a.Floor;
         }else {
           updateMessage.MsgType = 4 //Cab request
 
           //TODO: Hvordan legge til hvilken elevator det er snakk om??
-          updateMessage.Floor = uint(a.Floor);
+          updateMessage.Floor = a.Floor;
         }
         //updateMessage.update[0] = //Floor og knapp
         NetworkUpdate <- updateMessage;
@@ -99,15 +105,17 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
           updateMessage.MsgType = 2; //Arrived at floor
           updateMessage.Floor = elev_state.Floor;
 
+          fmt.Println("Reached floor: ", elev_state.Floor)
           //TODO: HVordan legge til hvilken elevator det er snakk om?? eeeller trengs det nå?
-          NetworkUpdate <- updateMessage;
+          //NetworkUpdate <- updateMessage;
 
           //Handling elevator stuff
           if shouldStop(elev_state) {
             elevio.SetMotorDirection(elevio.MD_Stop)
             elevio.SetDoorOpenLamp(true)
             door_timed_out.Reset(3 * time.Second)
-            //elev_state.state = DOOR_OPEN???
+            elev_state.Behaviour = "doorOpen"
+            elev_state.Direction = chooseDirection(elev_state)
             elev_state = clearAtCurrentFloor(elev_state)
             setAllLights(elev_state)
             //^clears orders in the loca state variable. Needs to send an update message??
@@ -117,12 +125,14 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
       case <- door_timed_out.C:
         elevio.SetDoorOpenLamp(false);
+        /*fmt.Println("Old direction is: ", elev_state.Direction)
         elev_state.Direction = chooseDirection(elev_state)
-        //TODO: Handle state/behaviour update??
+        fmt.Println("New direction is: ", elev_state.Direction)
+        */
         if(elev_state.Direction == elevio.MD_Stop) {
-          //elev_state.state = IDLE
+          elev_state.Behaviour = "idle"
         } else{
-          //elev_state.state = MOVING
+          elev_state.Behaviour = "moving"
           elevio.SetMotorDirection(elev_state.Direction)
         }
       }
@@ -145,7 +155,7 @@ func requestsAbove(elev_state State) bool {
 
 
 func requestsBelow(elev_state State) bool {
-  for floor := uint(0); floor < elev_state.Floor; floor++ {
+  for floor := 0; floor < elev_state.Floor; floor++ {
     for button := 0; button < BUTTONS; button++ {
       if elev_state.Orders[floor][button] {
         return true
@@ -168,8 +178,9 @@ func chooseDirection(elev_state State) elevio.MotorDirection {
       return elevio.MD_Stop
     }
 
-  case elevio.MD_Down:
   case elevio.MD_Stop:
+    fallthrough
+  case elevio.MD_Down:
     if requestsBelow(elev_state) {
       return elevio.MD_Down
     } else if requestsAbove(elev_state) {
@@ -196,10 +207,10 @@ func shouldStop(elev_state State) bool {
     return elev_state.Orders[elev_state.Floor][elevio.BT_HallUp] || elev_state.Orders[elev_state.Floor][elevio.BT_Cab] || !requestsAbove(elev_state)
 
   case elevio.MD_Stop:
+    fallthrough
   default:
     return true
   }
-  return true
 }
 
 
@@ -221,6 +232,7 @@ func clearAtCurrentFloor(elev_state State) State{
       }
 
     case elevio.MD_Stop:
+      fallthrough
     default:
       elev_state.Orders[elev_state.Floor][elevio.BT_HallDown] = false
       elev_state.Orders[elev_state.Floor][elevio.BT_HallUp] = false
@@ -230,8 +242,8 @@ func clearAtCurrentFloor(elev_state State) State{
 
 
 func setAllLights(elev_state State) {
-  for floor := 0; floor < int(FLOORS); floor++ {
-    for button := elevio.BT_HallUp; button < elevio.BT_Cab; button++ {
+  for floor := 0; floor < FLOORS; floor++ {
+    for button := elevio.BT_HallUp; button <= elevio.BT_Cab; button++ {
       elevio.SetButtonLamp(button, floor, elev_state.Orders[floor][button])
     }
   }
