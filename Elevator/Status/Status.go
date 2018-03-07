@@ -2,6 +2,8 @@ package status
 
 import (
 	//"os"
+	//"encoding/json"
+	//"bufio"
 )
 
 var FLOORS int
@@ -51,7 +53,7 @@ type UpdateMsg struct {
 	// 2 = arrivedAtfloor
 	// 3 = newDirection
 	// 4 = cabRequest
-	Elevator int //used in all other than 0
+	Elevator string //used in all other than 0
 	Floor    uint //used in 0,2,4
 	Button   int //used in 0
 	Behaviour string //used in 1
@@ -59,50 +61,75 @@ type UpdateMsg struct {
 	ServedOrder bool //used in 0, 4 - true if the elevator har completed an order and wants to clear it
 }
 
-type Status_Struct struct {
+type StatusStruct struct {
 	HallRequests [][]bool `json:"hallRequests"`
-	States       State `json:"states"`
+	States       map[string]StateValues `json:"states"` //key kan be changed to int if more practical but remember to cast to string before JSON encoding!
 }
 
-type State struct{
-	One State_Values
-	Two State_Values
-}
-
-type State_Values struct {
+type StateValues struct {
 	Behaviour   string `json:"behaviour"`
 	Floor       uint `json:"floor"`
 	Direction   string `json:"direction"`
 	CabRequests []bool `json:"cabRequest"`
 }
 
-func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
+func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init bool) {
 	/* ------------Commented out block until file is used-------------------
-	//file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
-	//check(err)
+	file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
+	check(err)
+	reader := bufio.NewReader(f)
 	------------------------------------------------------------------------*/
 
-	status := Status_Struct{ //TODO: initialize with correct values
-							HallRequests: [][]bool{{false,false},{false,false},{false,false},{false,false}},
-							States: State{
-										One: State_Values{
-											Behaviour: "moving",
-											Floor: 2,
-											Direction: "up",
-											CabRequests: []bool{false,false,false,true},
-											},
-										Two: State_Values{
-											Behaviour: "moving",
-											Floor: 2,
-											Direction: "up",
-											CabRequests: []bool{false,false,false,true},
-											},
-									 	},
-							 }
+	if init{ //clean initialization
+		
+	status := new(StatusStruct) //todo: initilize with zero values and refresh file
+	
+	status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
+	status.States = map[string]StateValues{
+		"One": {
+			Behaviour: "moving",
+			Floor: 2,
+			Direction: "up",
+			CabRequests: []bool{false,false,false,true},
+			},
+		"Two": {
+			Behaviour: "moving",
+			Floor: 2,
+			Direction: "up",
+			CabRequests: []bool{false,false,false,true},
+			},					
+		}
+		
+	
+
+	} else {//recover status from file
+		status := StatusStruct
+		e := json.NewDecoder(reader).Decode(&status)
+		check(e)
+	}
+
+	status := new(StatusStruct) //todo: initilize with correct values
+	status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
+	status.States = map[string]State_Values{
+		"One": {
+			Behaviour: "moving",
+			Floor: 2,
+			Direction: "up",
+			CabRequests: []bool{false,false,false,true},
+			},
+		"Two": {
+			Behaviour: "moving",
+			Floor: 2,
+			Direction: "up",
+			CabRequests: []bool{false,false,false,true},
+			},					
+		}
+
 	for {
 		select {
 			case message := <-StatusUpdate:
 				switch message.MsgType{
+
 					case 0://hall request
 						if message.ServedOrder{
 							status.HallRequests[message.Floor][message.Button] = false
@@ -111,15 +138,20 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg) {
 							status.HallRequests[message.Floor][message.Button] = true
 							//TODO write to file
 						}
+
 					case 1://new Behaviour
 						status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
+						//	-check if elevator exists in status struct, handle if not
+
 					case 2://arrived at floor
 						status.States[message.Elevator].Floor = message.Floor
 						//TODO: write to file
+
 					case 3://new direction
 						status.States[message.Elevator].Direction = message.Direction
 						//TODO: write to file
+
 					case 4://cab request
 						if message.ServedOrder {
 							status.States[message.Elevator].CabRequests[message.Floor] = false

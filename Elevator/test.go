@@ -8,15 +8,9 @@ import (
 	"io"
 
 )
-
-type Status_Struct struct {
+type Status_struct struct {
 	HallRequests [][]bool `json:"hallRequests"`
-	States       State `json:"states"`
-}
-
-type State struct{
-	One State_Values
-	Two State_Values
+	States       map[string]State_Values `json:"states"`
 }
 
 type State_Values struct {
