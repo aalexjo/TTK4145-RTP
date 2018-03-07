@@ -28,7 +28,7 @@ type NewOrder struct {
 //#TODO:places and change to Status' state struct?
 
 
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_Struct, elev_state State, newOrderChannel chan NewOrder){ // Remove elev_state and change to the channel?? (From status)
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan status.Status_Struct, init bool, elevID string){ // Remove elev_state and change to the channel?? (From status)
   var updateMessage status.UpdateMsg
 
   in_buttons := make(chan elevio.ButtonEvent)
@@ -160,7 +160,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         }
       }
   }
-}
+}HallRequests [][]bool
+  States map[string]status.StateValues
 
 
 

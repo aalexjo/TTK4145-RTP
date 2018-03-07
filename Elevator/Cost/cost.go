@@ -9,33 +9,16 @@ import (
 var FLOORS int
 var ELEVATORS int
 
-type Order_Struct struct{
-	Elevator []HallReq_Struct
-}
 
-type HallReq_Struct struct{
-	orders [][]bool
-}
-
-type Status_Struct struct {
-	HallRequests [][]bool `json:"hallRequests"`
-	States       State `json:"states"`
-}
-
-type State struct{
-	One State_Values
-	Two State_Values
-}
-
-type State_Values struct {
-	Behaviour   string `json:"behaviour"`
-	Floor       uint `json:"floor"`
-	Direction   string `json:"direction"`
-	CabRequests []bool `json:"cabRequest"`
+type AssignedOrderInformation struct{
+	AssignedOrders map[string][][]bool
+	HallRequests [][]bool
+	States map[string]status.StateValues
 }
 
 
-func Cost((HallRequests chan<- status.UpdateMsg, ElevStatus <-chan status.Status_struct)){
+
+func Cost((FSMinfo chan<- status.AssignedOrderInformation, ElevStatus <-chan status.StatusStruct)){
 	for{
 		select{
 			case status:= <-ElevStatus:
@@ -43,16 +26,24 @@ func Cost((HallRequests chan<- status.UpdateMsg, ElevStatus <-chan status.Status
 					if err != nil {
 						fmt.Println("error:", err)
 					}
+					
 
-					c := exec.Command("cmd", "")
-    				stdin, err := c.StdinPipe()
-    				if err != nil { 
-        				fmt.Println("Error: ", err)
-    				}	 
+					result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
 
-					io.WriteString(stdin,b)
+					if err != nil {
+						fmt.Println("error:", err)
+					}
 
+					orders := new(map[string][][]bool)
+					json.Unmarshal(b, orders)
 
+					output := AssignedOrderInformation{
+						AssignedOrders: orders,
+						HallRequests: ElevStatus.HallRequests,
+						States: ElevStatus.States,
+					}
+
+					FSM_info<-output
 		}
 	}
 

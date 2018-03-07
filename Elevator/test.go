@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	//"os"
 	"os/exec"
-	"io"
+	//"io"
+	//"path/filepath"
 
 )
-type Status_struct struct {
+type Status_Struct struct {
 	HallRequests [][]bool `json:"hallRequests"`
 	States       map[string]State_Values `json:"states"`
 }
@@ -31,14 +32,14 @@ func main() {
 	
 	status := Status_Struct{
 		HallRequests: [][]bool{{false,false},{false,false},{false,false},{false,false}},
-		States: State{
-					One: State_Values{
+		States: map[string]State_Values{
+					"One": State_Values{
 						Behaviour: "moving",
 						Floor: 2,
 						Direction: "up",
 						CabRequests: []bool{false,false,false,true},
 						},
-					Two: State_Values{
+					"Two": State_Values{
 						Behaviour: "moving",
 						Floor: 2,
 						Direction: "up",
@@ -46,16 +47,26 @@ func main() {
 						},
 				 	},
 			}
-	b, err := json.Marshal(status)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
+	//b, err := json.Marshal(status)
+	//if err != nil {
+	//	fmt.Println("error:", err)
+	//}
 	//os.Stdout.Write(b)
 
 
+	arg, _ := json.Marshal(status)
+	//dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	//fmt.Println(dir)
+	result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
 
-	c:= exec.Command("./hall_request_assigner")//"./hall_request_assigner -i '" + string(b[:]) + "'").Output()				//"gnome-terminal","-x", "sh", "-c", 
-	stdout, err := c.StdoutPipe()
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	fmt.Println(string(result))
+
+	//c:= exec.Command("./hall_request_assigner")//"./hall_request_assigner -i '" + string(b[:]) + "'").Output()				//"gnome-terminal","-x", "sh", "-c", 
+	/*stdout, err := c.StdoutPipe()
 	if err != nil {
 		fmt.Println("error:", err)
 	}
@@ -76,7 +87,7 @@ func main() {
 	requests := Assigned_Requests{
 		One: [][]bool{{false,false},{false,false},{false,false},{false,false}},
 		Two: [][]bool{{false,false},{false,false},{false,false},{false,false}},
-	}*/
+	}
 	var requests Assigned_Requests
 	stdout.Read(b)
 	fmt.Println(string(b))
@@ -92,7 +103,7 @@ func main() {
 	}
 
 	os.Stdout.Write(b)
-	fmt.Println("")
+	fmt.Println("")*/
 }
 
 

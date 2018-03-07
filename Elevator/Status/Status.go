@@ -53,11 +53,12 @@ type UpdateMsg struct {
 	// 2 = arrivedAtfloor
 	// 3 = newDirection
 	// 4 = cabRequest
+	// 5 = ElevatorInit
 	Elevator string //used in all other than 0
-	Floor    uint //used in 0,2,4
+	Floor    uint //used in 0,2,4,5
 	Button   int //used in 0
-	Behaviour string //used in 1
-	Direction string //used in 3
+	Behaviour string //used in 1, 5
+	Direction string //used in 3, 5
 	ServedOrder bool //used in 0, 4 - true if the elevator har completed an order and wants to clear it
 }
 
@@ -72,6 +73,24 @@ type StateValues struct {
 	Direction   string `json:"direction"`
 	CabRequests []bool `json:"cabRequest"`
 }
+/*-------------HOW TO INITIALIZE STATUS---------------
+status := new(StatusStruct) //todo: initilize with correct values
+status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
+status.States = map[string]State_Values{
+	"One": {
+		Behaviour: "moving",
+		Floor: 2,
+		Direction: "up",
+		CabRequests: []bool{false,false,false,true},
+		},
+	"Two": {
+		Behaviour: "moving",
+		Floor: 2,
+		Direction: "up",
+		CabRequests: []bool{false,false,false,true},
+		},					
+	}
+------------------------------------------------------*/
 
 func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init bool) {
 	/* ------------Commented out block until file is used-------------------
@@ -83,53 +102,19 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init
 	if init{ //clean initialization
 		
 	status := new(StatusStruct) //todo: initilize with zero values and refresh file
-	
 	status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
-	status.States = map[string]StateValues{
-		"One": {
-			Behaviour: "moving",
-			Floor: 2,
-			Direction: "up",
-			CabRequests: []bool{false,false,false,true},
-			},
-		"Two": {
-			Behaviour: "moving",
-			Floor: 2,
-			Direction: "up",
-			CabRequests: []bool{false,false,false,true},
-			},					
-		}
-		
-	
-
-	} else {//recover status from file
-		status := StatusStruct
+	status.States = map[string]StateValues{}
+	else {//recover status from file
+		status := new(StatusStruct)
 		e := json.NewDecoder(reader).Decode(&status)
 		check(e)
 	}
 
-	status := new(StatusStruct) //todo: initilize with correct values
-	status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
-	status.States = map[string]State_Values{
-		"One": {
-			Behaviour: "moving",
-			Floor: 2,
-			Direction: "up",
-			CabRequests: []bool{false,false,false,true},
-			},
-		"Two": {
-			Behaviour: "moving",
-			Floor: 2,
-			Direction: "up",
-			CabRequests: []bool{false,false,false,true},
-			},					
-		}
-
 	for {
 		select {
 			case message := <-StatusUpdate:
+				//	-check if elevator exists in status struct, handle if not
 				switch message.MsgType{
-
 					case 0://hall request
 						if message.ServedOrder{
 							status.HallRequests[message.Floor][message.Button] = false
@@ -142,7 +127,6 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init
 					case 1://new Behaviour
 						status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
-						//	-check if elevator exists in status struct, handle if not
 
 					case 2://arrived at floor
 						status.States[message.Elevator].Floor = message.Floor
@@ -160,7 +144,13 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init
 							status.States[message.Elevator].CabRequests[message.Floor] = true
 							//TODO write to file
 						}
-
+					case 5: //init message
+						new_status.States[message.Elevator] = StateValues{
+							Behaviour: message.Behaviour,
+							Floor: message.Floor,
+							Direction: message.Direction,
+							CabRequests: []bool{false,false,false,false},
+						}
 				}
 			case ElevStatus <- status:
 		}
