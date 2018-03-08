@@ -29,7 +29,7 @@ type Assigned_Requests struct {
 
 
 func main() {
-	
+
 	status := Status_Struct{
 		HallRequests: [][]bool{{false,false},{false,false},{false,false},{false,false}},
 		States: map[string]State_Values{
@@ -65,7 +65,7 @@ func main() {
 
 	fmt.Println(string(result))
 
-	//c:= exec.Command("./hall_request_assigner")//"./hall_request_assigner -i '" + string(b[:]) + "'").Output()				//"gnome-terminal","-x", "sh", "-c", 
+	//c:= exec.Command("./hall_request_assigner")//"./hall_request_assigner -i '" + string(b[:]) + "'").Output()				//"gnome-terminal","-x", "sh", "-c",
 	/*stdout, err := c.StdoutPipe()
 	if err != nil {
 		fmt.Println("error:", err)
@@ -105,6 +105,21 @@ func main() {
 	os.Stdout.Write(b)
 	fmt.Println("")*/
 }
+
+statustest := AssignedOrderInformation{
+	AssignedOrders: map[string][][]bool {
+		elevID: {{true,false},{false,false},{true,true},{false,true}},
+	},
+	HallRequests: [][]bool{{true,false},{false,false},{true,true},{false,true}},
+	States: map[string]State_Values{
+				"One": State_Values{
+					Behaviour: "moving",
+					Floor: 2,
+					Direction: "up",
+					CabRequests: []bool{false,false,true,false},
+				},
+			},
+		}
 
 
 //*/
