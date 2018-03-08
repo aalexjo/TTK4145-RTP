@@ -56,7 +56,7 @@ type UpdateMsg struct {
 	// 5 = newElev
 	// 6 = deleteElev
 	Elevator string //used in all other than 0
-	Floor    uint //used in 0,2,4,5
+	Floor    int //used in 0,2,4,5
 	Button   int //used in 0
 	Behaviour string //used in 1, 5
 	Direction string //used in 3, 5
@@ -70,7 +70,7 @@ type StatusStruct struct {
 
 type StateValues struct {
 	Behaviour   string `json:"behaviour"`
-	Floor       uint `json:"floor"`
+	Floor       int `json:"floor"`
 	Direction   string `json:"direction"`
 	CabRequests []bool `json:"cabRequest"`
 }

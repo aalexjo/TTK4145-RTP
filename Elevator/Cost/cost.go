@@ -1,8 +1,10 @@
 package cost
 
 import (
-	"io"
-	"os"
+	//"io"
+	"os/exec"
+	"fmt"
+	"encoding/json"
 	"../Status"
 )
 
@@ -18,11 +20,11 @@ type AssignedOrderInformation struct{
 
 
 
-func Cost((FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.StatusStruct)){
+func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.StatusStruct){
 	for{
 		select{
 			case status:= <-ElevStatus:
-					b, err := json.Marshal(status)
+					arg, err := json.Marshal(status)
 					if err != nil {
 						fmt.Println("error:", err)
 					}
@@ -35,15 +37,15 @@ func Cost((FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Sta
 					}
 
 					orders := new(map[string][][]bool)
-					json.Unmarshal(b, orders)
+					json.Unmarshal(result, orders)
 
 					output := AssignedOrderInformation{
-						AssignedOrders: orders,
-						HallRequests: ElevStatus.HallRequests,
-						States: ElevStatus.States,
+						AssignedOrders: *orders,
+						HallRequests: status.HallRequests,
+						States: status.States,
 					}
 
-					FSM_info<-output
+					FSMinfo<-output
 		}
 	}
 
