@@ -11,7 +11,7 @@ import (
 type PeerUpdate struct {
 	Peers []string
 	New   string
-	Lost  []string
+	Lost  string
 }
 
 const interval = 15 * time.Millisecond
@@ -80,7 +80,6 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 			}
 
 			sort.Strings(p.Peers)
-			sort.Strings(p.Lost)
 			peerUpdateCh <- p
 		}
 	}

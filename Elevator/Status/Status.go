@@ -99,19 +99,20 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 	check(err)
 	reader := bufio.NewReader(file)
 	//------------------------------------------------------------------------*/
-	status := new(StatusStruct) //HAd to move this up here??
+	status := new(StatusStruct)
 
 	if init{ //clean initialization
 		file, err = os.Create("status.txt")
 		check(err)
 		status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
-		status.States = map[string]State_Values{
+		status.States = map[string]StateValues{
 			id: {
 				Behaviour: "idle",
 				Floor: 0,
 				Direction: "stop",
 				CabRequests: []bool{false,false,false,false},
 				},
+			}
 	} else {//recover status from file
 		e := json.NewDecoder(reader).Decode(&status)
 		check(e)
@@ -162,7 +163,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 					case 6:
 						delete(status.States, message.Elevator)
 				}
-			case ElevStatus <- status:
+			case ElevStatus <- *status:
 		}
 
 	}

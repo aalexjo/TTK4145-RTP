@@ -12,10 +12,7 @@ const FLOORS = 4
 const ELEVATORS = 1
 const BUTTONS = 3
 
-//#TODO: Make FSM work with the information from cost...
 //#TODO: Uncomment network message sending
-//TODO: Make init function/message?
-
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string){
   var updateMessage status.UpdateMsg
