@@ -18,7 +18,7 @@ type AssignedOrderInformation struct{
 
 
 
-func Cost((FSMinfo chan<- status.AssignedOrderInformation, ElevStatus <-chan status.StatusStruct)){
+func Cost((FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.StatusStruct)){
 	for{
 		select{
 			case status:= <-ElevStatus:
@@ -26,7 +26,7 @@ func Cost((FSMinfo chan<- status.AssignedOrderInformation, ElevStatus <-chan sta
 					if err != nil {
 						fmt.Println("error:", err)
 					}
-					
+
 
 					result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
 
