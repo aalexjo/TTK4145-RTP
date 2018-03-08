@@ -160,8 +160,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan status.Status_Str
         }
       }
   }
-}HallRequests [][]bool
-  States map[string]status.StateValues
+}/*HallRequests [][]bool
+  States map[string]status.StateValues*///Hva er dette?
 
 
 

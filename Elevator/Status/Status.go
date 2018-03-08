@@ -1,9 +1,9 @@
 package status
 
 import (
-	//"os"
-	//"encoding/json"
-	//"bufio"
+	"os"
+	"encoding/json"
+	"bufio"
 )
 
 var FLOORS int
@@ -88,24 +88,24 @@ status.States = map[string]State_Values{
 		Floor: 2,
 		Direction: "up",
 		CabRequests: []bool{false,false,false,true},
-		},					
+		},
 	}
 ------------------------------------------------------*/
 
-func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init bool) {
-	/* ------------Commented out block until file is used-------------------
+func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init bool) {
+	// ------------Commented out block until file is used-------------------
 	file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
 	check(err)
-	reader := bufio.NewReader(f)
-	------------------------------------------------------------------------*/
+	reader := bufio.NewReader(file)
+	//------------------------------------------------------------------------*/
+	status := new(StatusStruct) //HAd to move this up here??
 
 	if init{ //clean initialization
-		
-	status := new(StatusStruct) //todo: initilize with zero values and refresh file
+	//status := new(StatusStruct) //todo: initilize with zero values and refresh file
 	status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
 	status.States = map[string]StateValues{}
-	else {//recover status from file
-		status := new(StatusStruct)
+	} else {//recover status from file
+		//status := new(StatusStruct)
 		e := json.NewDecoder(reader).Decode(&status)
 		check(e)
 	}
@@ -125,15 +125,15 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init
 						}
 
 					case 1://new Behaviour
-						status.States[message.Elevator].Behaviour = message.Behaviour
+						//status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
 
 					case 2://arrived at floor
-						status.States[message.Elevator].Floor = message.Floor
+						//status.States[message.Elevator].Floor = message.Floor
 						//TODO: write to file
 
 					case 3://new direction
-						status.States[message.Elevator].Direction = message.Direction
+						//status.States[message.Elevator].Direction = message.Direction
 						//TODO: write to file
 
 					case 4://cab request
@@ -145,14 +145,15 @@ func Status(ElevStatus chan<- Status_Struct, StatusUpdate <-chan UpdateMsg, init
 							//TODO write to file
 						}
 					case 5: //init message
-						new_status.States[message.Elevator] = StateValues{
+					/*
+							new_status.States[message.Elevator] = StateValues{
 							Behaviour: message.Behaviour,
 							Floor: message.Floor,
 							Direction: message.Direction,
 							CabRequests: []bool{false,false,false,false},
-						}
+						}*/
 				}
-			case ElevStatus <- status:
+			case ElevStatus <- *status:
 		}
 
 	}

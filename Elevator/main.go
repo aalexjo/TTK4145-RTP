@@ -26,7 +26,7 @@ func main() {
 	}
 	testNewOrderCh := make(chan fsm.NewOrder)
 	/*----------------------------------*/
-	
+
 	ElevID, err := localIP()[12:] //denne funker obviously ikke? kaller dypt nde i network mappestrukturen
 
 	AssignGlobals()//TODO: assign more globals
@@ -42,8 +42,8 @@ func main() {
 	go status.Status(ElevStatus, StatusUpdate, init)
 	go fsm.Fsm(NetworkUpdate, FSMinfo, init, elevID)
 	go cost.Cost(FSMinfo, ElevStatus)
-	
-	for{	
+
+	for{
 	}
 
 }
