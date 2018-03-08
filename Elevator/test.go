@@ -1,60 +1,17 @@
 package main
 
 import (
-	//"encoding/json"
-	"fmt"
-	"log"
-	"os/exec"
-	"os"
-)
-
-func main() {
-	cmd := exec.Command("cmd","/C","echo", "{\"Name\": \"Bob\", \"Age\": 32}")
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-	var person struct {
-		Name string
-		Age  int
-	}
-
-	var b []byte
-	stdout.Read(b)
-	fmt.Println(b)
-	os.Stdout.Write(b)
-	//if err := json.NewDecoder(stdout).Decode(&person); err != nil {
-	//	log.Fatal(err)
-	//}
-	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%s is %d years old\n", person.Name, person.Age)
-}
-
-/*
-
-package main
-
-import (
 	"encoding/json"
 	"fmt"
-	"os"
+	//"os"
 	"os/exec"
 	//"io"
-)
+	//"path/filepath"
 
+)
 type Status_Struct struct {
 	HallRequests [][]bool `json:"hallRequests"`
-	States       State `json:"states"`
-}
-
-type State struct{
-	One State_Values
-	Two State_Values
+	States       map[string]State_Values `json:"states"`
 }
 
 type State_Values struct {
@@ -64,17 +21,25 @@ type State_Values struct {
 	CabRequests []bool `json:"cabRequest"`
 }
 
+type Assigned_Requests struct {
+	One [][]bool
+	Two [][]bool
+
+}
+
+
 func main() {
+	
 	status := Status_Struct{
 		HallRequests: [][]bool{{false,false},{false,false},{false,false},{false,false}},
-		States: State{
-					One: State_Values{
+		States: map[string]State_Values{
+					"One": State_Values{
 						Behaviour: "moving",
 						Floor: 2,
 						Direction: "up",
 						CabRequests: []bool{false,false,false,true},
 						},
-					Two: State_Values{
+					"Two": State_Values{
 						Behaviour: "moving",
 						Floor: 2,
 						Direction: "up",
@@ -82,34 +47,64 @@ func main() {
 						},
 				 	},
 			}
-	b, err := json.Marshal(status)
+	//b, err := json.Marshal(status)
+	//if err != nil {
+	//	fmt.Println("error:", err)
+	//}
+	//os.Stdout.Write(b)
+
+
+	arg, _ := json.Marshal(status)
+	//dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	//fmt.Println(dir)
+	result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
+
 	if err != nil {
 		fmt.Println("error:", err)
 	}
-	//os.Stdout.Write(b)
-	c := exec.Command("cmd", "/K", "start", "C:\\Users\\Alexander\\Documents\\Skole\\6._Semseter\\TTK4145-RTP\\Resources\\cost_fns\\hall_request_assigner\\hall_request_assigner.exe","--i",string(b))
-	fmt.Println(string(b))
-	
-	stdout, err := c.StdoutPipe()
+
+	fmt.Println(string(result))
+
+	//c:= exec.Command("./hall_request_assigner")//"./hall_request_assigner -i '" + string(b[:]) + "'").Output()				//"gnome-terminal","-x", "sh", "-c", 
+	/*stdout, err := c.StdoutPipe()
 	if err != nil {
 		fmt.Println("error:", err)
 	}
 	fmt.Println("here1")
-	//stderr, _ := c.StderrPipe()
-	if err := c.Start(); err != nil { 
-        fmt.Println("Error: ", err)
-    }  	
 
-	var new_status Status_Struct
-	fmt.Println(*(stdout))
-    json.NewDecoder(stdout).Decode(&new_status)
-    fmt.Println("here3")
-	b, err = json.Marshal(new_status)
+	stdin, err := c.StdinPipe()
 	if err != nil {
 		fmt.Println("error:", err)
 	}
+
+	if err := c.Start(); err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Println("here2")
+	io.WriteString(stdin, string(b[:]))
+	fmt.Println("here3")
+	/*
+	requests := Assigned_Requests{
+		One: [][]bool{{false,false},{false,false},{false,false},{false,false}},
+		Two: [][]bool{{false,false},{false,false},{false,false},{false,false}},
+	}
+	var requests Assigned_Requests
+	stdout.Read(b)
+	fmt.Println(string(b))
+    json.NewDecoder(stdout).Decode(&requests)
+    fmt.Println("here4")
+	b, err = json.Marshal(requests)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	if err := c.Wait(); err != nil {
+		fmt.Println("Error: ", err)
+	}
+
 	os.Stdout.Write(b)
-
-
+	fmt.Println("")*/
 }
-*/
+
+
+//*/

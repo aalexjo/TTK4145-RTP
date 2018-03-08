@@ -14,7 +14,10 @@ var ELEVATORS = 3
 
 func main() {
 
-/*----TEST ELEVATOR STRUCT-------------*/
+
+	init := os.Args[1]
+
+	/*----TEST ELEVATOR STRUCT-------------*/
 	testElevator := fsm.State {
 	Behaviour: "idle",
 	Floor: 1,
@@ -23,21 +26,24 @@ func main() {
 	}
 	testNewOrderCh := make(chan fsm.NewOrder)
 	/*----------------------------------*/
-	AssignGlobals()
 
-	//StatusUpdate := make(chan status.UpdateMsg) //sends updates that occured in the network to the status module
-	NetworkUpdate := make(chan status.UpdateMsg)
-	ElevStatus := make(chan status.Status_Struct)
-	//HallRequests := make(chan cost.Order_Struct)
+	ElevID, err := localIP()[12:] //denne funker obviously ikke? kaller dypt nde i network mappestrukturen
+
+	AssignGlobals()//TODO: assign more globals
+
+	StatusUpdate := make(chan Status.UpdateMsg) //sends updates that occured in the network to the status module
+	NetworkUpdate := make(chan Status.UpdateMsg)
+	ElevStatus := make(chan Status.StatusStruct)
+	FSMinfo := make(chan cost.AssignedOrderInformation)
+
 	elevio.Init("localhost:15657", FLOORS)
 
-	//go network.Network(StatusUpdate, NetworkUpdate)
-	//go status.Status(ElevStatus, StatusUpdate)
-	//go fsm.Fsm(NetworkUpdate, StatusUpdate)
-	go fsm.Fsm(NetworkUpdate, ElevStatus, testElevator, testNewOrderCh)
-	//go cost.Cost(HallRequests, ElevStatus)
+	go network.Network(StatusUpdate, NetworkUpdate)
+	go status.Status(ElevStatus, StatusUpdate, init)
+	go fsm.Fsm(NetworkUpdate, FSMinfo, init, elevID)
+	go cost.Cost(FSMinfo, ElevStatus)
+
 	for{
-		
 	}
 
 }

@@ -1,6 +1,6 @@
 package main
 
-import "./elevio"
+import "../Elevio"
 import "fmt"
 
 func main(){

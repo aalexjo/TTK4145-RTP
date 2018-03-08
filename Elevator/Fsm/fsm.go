@@ -11,7 +11,7 @@ const FLOORS = 4
 const ELEVATORS = 1
 const BUTTONS = 3
 
-type State struct {
+/*type State struct {
   Behaviour   string
   Floor       int
   Orders      [][]bool
@@ -21,14 +21,13 @@ type State struct {
 type NewOrder struct {
   Floor int
   Button elevio.ButtonType
-}
+}*/
 
-//#TODO: allow communication between modules, add information about which elevator i am?
-//#TODO:Add state functionality some
-//#TODO:places and change to Status' state struct?
+//#TODO: Make FSM work with the information from cost...
+//#TODO: Uncomment network message sending
 
 
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_Struct, elev_state State, newOrderChannel chan NewOrder){ // Remove elev_state and change to the channel?? (From status)
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan status.StatusStruct, init bool, elevID string){
   var updateMessage status.UpdateMsg
 
   in_buttons := make(chan elevio.ButtonEvent)
@@ -73,6 +72,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
 
         }
 
+      //Blir dette riktig?
+      //case FSMinfo: .....
+
       case buttonEvent := <- in_buttons:
         /*------------Making update message ------------*/
         if buttonEvent.Button < 2 { // If hall request
@@ -83,7 +85,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
           updateMessage.MsgType = 4 //Cab request
           updateMessage.Floor = buttonEvent.Floor
           updateMessage.ServedOrder = false //Nytt knappetrykk
-          //TODO: Hvordan legge til hvilken elevator det er snakk om??
+          updateMessage.Elevator = ElevID
         }
         //NetworkUpdate <- updateMessage;
 
@@ -91,23 +93,22 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         //TODO:Eventuelt STOPP-knapp behandling eller noe?
         //TODO:Eventuelt hvis vi skal akseptere cabRequests umiddelbart??
 
-      case elev_state.Floor = <- in_floors:
+      case floor = <- in_floors:
         /*--------------Message to send--------------------*/
-          updateMessage.MsgType = 2; //Arrived at floor
-          updateMessage.Floor = elev_state.Floor;
-          //updateMessage.Elevator = ?????
-
-          fmt.Println("Reached floor: ", elev_state.Floor)
-          //TODO: HVordan legge til hvilken elevator det er snakk om?? eeeller trengs det nå?
+          updateMessage.MsgType = 2 //Arrived at floor
+          updateMessage.Floor = floor
+          updateMessage.Elevator = ElevID
           //NetworkUpdate <- updateMessage;
 
-          if shouldStop(elev_state) {
+          //fmt.Println("Reached floor: ", elev_state.Floor)
+
+          if shouldStop(FSMinfo) {
             elevio.SetMotorDirection(elevio.MD_Stop)
 
             //Stop message
             updateMessage.MsgType = 3
             updateMessage.Direction = "stop"
-            //updateMessage.Elevator = ???
+            updateMessage.Elevator = ElevID
             //NetworkUpdate <- updateMessage
 
             elevio.SetDoorOpenLamp(true)
@@ -116,10 +117,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
             //Behaviour message
             updateMessage.MsgType = 1
             updateMessage.Behaviour = "doorOpen"
-            //updateMessage.Elevator = ???
+            updateMessage.Elevator = ElevID
             //NetworkUpdate <- updateMessage
 
-            elev_state.Behaviour = "doorOpen"
             elev_state = clearAtCurrentFloor(elev_state, NetworkUpdate)
             setAllLights(elev_state)
           }
@@ -160,7 +160,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, ElevStatus <-chan status.Status_
         }
       }
   }
-}
+}/*HallRequests [][]bool
+  States map[string]status.StateValues*///Hva er dette?
 
 
 func requestsAbove(elev_state State) bool {
