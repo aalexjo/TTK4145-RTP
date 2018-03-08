@@ -1,7 +1,7 @@
 package network
 
 import (
-	"flag"
+
 	"fmt"
 	"os"
 
@@ -15,24 +15,7 @@ import (
 // Note that all members we want to transmit must be public. Any private members
 //  will be received as zero-values.
 
-func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.UpdateMsg) {
-	// Our id can be anything. Here we pass it on the command line, using
-	//  `go run main.go -id=our_id`
-	var id string
-	flag.StringVar(&id, "id", "", "id of this peer")
-	flag.Parse()
-
-	// ... or alternatively, we can use the local IP address.
-	// (But since we can run multiple programs on the same PC, we also append the
-	//  process ID)
-	if id == "" {
-		localIP, err := localip.LocalIP()
-		if err != nil {
-			fmt.Println(err)
-			localIP = "DISCONNECTED"
-		}
-		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
-	}
+func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.UpdateMsg, ElevID string, id string) {
 
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
@@ -43,10 +26,13 @@ func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.U
 	go peers.Transmitter(15647, id, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
+	TXupdate := make(status.UpdateMsg)
+	//TXstate := make(status.StatusStruct) //used when node needs to sync with network
+
 	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, StatusUpdate) //TODO: fix ports
+	go bcast.Transmitter(16569, TXchannel) //TODO: fix ports
 	go bcast.Receiver(16569, NetworkUpdate)
 
 	fmt.Println("Started")
@@ -58,8 +44,19 @@ func Network(StatusUpdate chan<- status.UpdateMsg, NetworkUpdate <-chan status.U
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case a := <- NetworkUpdate:
-			fmt.Printf("Received: %#v\n", a)
-		}
+			if p.Lost != ""{
+				update := status.UpdateMsg{
+					MsgType: 6,
+					Elevator: p.Lost,
+				}
+				TXchannel <- update
+				StatusUpdate <- update
+			}
+			if p.New != ""{
+				//TODO: transmit full state information
+			}
+		case update := <-NetworkUpdate:
+			TXchannel <- update
+			StatusUpdate <- update
 	}
 }
