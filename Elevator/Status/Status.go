@@ -57,7 +57,7 @@ type StateValues struct {
 	CabRequests []bool `json:"cabRequests"`
 }
 
-func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct, StatusRefresh <-chan status.StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
+func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct, StatusRefresh <-chan StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
 	// ------------Commented out block until file is used-------------------
 	//file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
 	//check(err)
@@ -129,10 +129,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 					case 5:
 						delete(status.States, message.Elevator)
 				}
-			case inputState <- StatusRefresh:
-
-
-
+			//case inputState := <- StatusRefresh:
 			case ElevStatus <- *status:
 			case StatusBroadcast <- *status:
 

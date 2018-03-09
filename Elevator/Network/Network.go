@@ -29,7 +29,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	TXupdate := make(chan status.UpdateMsg)
 	TXstate := make(chan status.StatusStruct)
 	RXupdate := make(chan status.UpdateMsg)
-	RXstate := make(chan status.StatusStruct)
+	//RXstate := make(chan status.StatusStruct)
 	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
@@ -54,16 +54,17 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				StatusUpdate <- update
 			}
 			if p.New != ""{
-				TXstate <- StatusBroadcast
+				//TXstate <- StatusBroadcast
 			}
 		case update := <-NetworkUpdate:
 			TXupdate <- update
 			StatusUpdate <- update
 			fmt.Println(update)
-		}
+		
 		case update := <-RXupdate:
 			if update.Elevator != id{
 				StatusUpdate <- update
 			}
+		}
 	}
 }

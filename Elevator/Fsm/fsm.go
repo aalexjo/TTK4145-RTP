@@ -31,6 +31,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
   if init {
     elevio.SetMotorDirection(elevio.MD_Down)
+    elevio.SetFloorIndicator(0)
     L:
     for {
       select {
@@ -52,7 +53,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
         case "doorOpen":
           continue
         case "idle":
-          newDirection := chooseDirection(elev_state, elevID)
+          newDirection := chooseDirection(elev_state, elevID, elev_state.States[elevID].Floor)
           switch newDirection {
           case elevio.MD_Stop:
             if elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][0] || elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][1] || elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
@@ -128,16 +129,20 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
           updateMessage.Elevator = elevID
           NetworkUpdate <- updateMessage;
 
-          //fmt.Println("Reached floor: ", elev_state.Floor)
+          fmt.Println("Reached floor: ", floor)
+          elevio.SetFloorIndicator(floor)
 
           if shouldStop(elev_state, elevID, floor) {
             elevio.SetMotorDirection(elevio.MD_Stop)
+             clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
 
+             /*
             //Stop message
             updateMessage.MsgType = 3
             updateMessage.Direction = "stop"
             updateMessage.Elevator = elevID
             NetworkUpdate <- updateMessage
+            */
 
             elevio.SetDoorOpenLamp(true)
             door_timed_out.Reset(3 * time.Second)
@@ -148,14 +153,13 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
             updateMessage.Elevator = elevID
             NetworkUpdate <- updateMessage
 
-            clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
+            //clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
             setAllLights(elev_state, elevID)
           }
 
       case <- door_timed_out.C:
         elevio.SetDoorOpenLamp(false)
-        fmt.Println("door_close  state: ", elev_state)
-        newDirection := chooseDirection(elev_state, elevID)
+        newDirection := chooseDirection(elev_state, elevID, elev_state.States[elevID].Floor)
         switch newDirection {
         case elevio.MD_Stop:
           //Behaviour message
@@ -198,8 +202,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 }
 
 
-func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string) bool {
-  for floor := elev_state.States[elevID].Floor+1; floor < FLOORS; floor++ {
+func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
+  for floor := reachedFloor+1; floor < FLOORS; floor++ {
     if elev_state.States[elevID].CabRequests[floor]{
       return true
     }
@@ -213,13 +217,12 @@ func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string) bool
 }
 
 
-func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string) bool {
-  for floor := 0; floor < elev_state.States[elevID].Floor; floor++ {
+func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
+  for floor := 0; floor < reachedFloor; floor++ {
     if elev_state.States[elevID].CabRequests[floor]{
       return true
     }
     for button := 0; button < 2; button++ {
-      //fmt.Println("below: ", elev_state.AssignedOrders[elevID][floor])
       if elev_state.AssignedOrders[elevID][floor][button]{
         return true
       }
@@ -230,24 +233,24 @@ func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string) bool
 
 
 //Choose direction of travel
-func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string) elevio.MotorDirection {
+func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string, floor int) elevio.MotorDirection {
   switch elev_state.States[elevID].Direction {
-  case "up":
-    if requestsAbove(elev_state, elevID) {
-      return elevio.MD_Up
-    } else if requestsBelow(elev_state, elevID) {
+  case "stop":
+    fallthrough
+  case "down":
+    if requestsBelow(elev_state, elevID, floor) {
       return elevio.MD_Down
+    } else if requestsAbove(elev_state, elevID, floor) {
+      return elevio.MD_Up
     } else {
       return elevio.MD_Stop
     }
 
-  case "stop":
-    fallthrough
-  case "down":
-    if requestsBelow(elev_state, elevID) {
-      return elevio.MD_Down
-    } else if requestsAbove(elev_state, elevID) {
+  case "up":
+    if requestsAbove(elev_state, elevID, floor) {
       return elevio.MD_Up
+    } else if requestsBelow(elev_state, elevID, floor) {
+      return elevio.MD_Down
     } else {
       return elevio.MD_Stop
     }
@@ -259,18 +262,18 @@ func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string) el
 }
 
 
-//Called when elevator reaches new floor, returns 1 if it should stop
+//Called when elevator reaches new floor, returns true if it should stop
 func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor int) bool {
   switch elev_state.States[elevID].Direction {
   case "down":
     return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallDown] ||
     elev_state.States[elevID].CabRequests[floor] ||
-    !requestsBelow(elev_state, elevID))
+    !requestsBelow(elev_state, elevID, floor))
 
   case "up":
     return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallUp] ||
     elev_state.States[elevID].CabRequests[floor] ||
-    !requestsAbove(elev_state, elevID))
+    !requestsAbove(elev_state, elevID, floor))
   case "stop":
     fallthrough
   default:
@@ -279,13 +282,15 @@ func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor i
 }
 
 
-//Clear order only if elevator is travelling in the right direction. RETURNS updated state!
+//Clear order only if elevator is travelling in the right direction.
 func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string, floor int, NetworkUpdate chan<- status.UpdateMsg){
     //For cabRequests
     update := status.UpdateMsg {
       MsgType: 4,
       Floor: floor,
       Button: 2,
+      Behaviour: elev_state.States[elevID].Behaviour,
+      Direction: elev_state.States[elevID].Direction,
       ServedOrder: true,
       Elevator: elevID,
     }
@@ -294,27 +299,27 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 
     //For hallRequests
     update.MsgType = 0
-    switch chooseDirection(elev_state, elevID) {
+    switch elev_state.States[elevID].Direction{//chooseDirection(elev_state, elevID, floor) {
 
-    case elevio.MD_Up:
+    case "up":// elevio.MD_Up:
       update.Button = int(elevio.BT_HallUp)
       NetworkUpdate <- update
 
-      if !requestsAbove(elev_state, elevID) {
+      if !requestsAbove(elev_state, elevID, floor) {
         update.Button = int(elevio.BT_HallDown)
         NetworkUpdate <- update
       }
 
-    case elevio.MD_Down:
+    case "down"://elevio.MD_Down:
       update.Button = int(elevio.BT_HallDown)
       NetworkUpdate <- update
 
-      if !requestsBelow(elev_state, elevID) {
+      if !requestsBelow(elev_state, elevID, floor) {
         update.Button = int(elevio.BT_HallUp)
         NetworkUpdate <- update
       }
 
-    case elevio.MD_Stop:
+    case "stop"://elevio.MD_Stop:
       fallthrough
     default:
       update.Button = int(elevio.BT_HallDown)
