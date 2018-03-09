@@ -1,9 +1,10 @@
 package status
 
 import (
-	"os"
-	"encoding/json"
-	"bufio"
+	//"os"
+	//"encoding/json"
+	//"bufio"
+	//"fmt"
 )
 
 var FLOORS int
@@ -57,7 +58,7 @@ type UpdateMsg struct {
 	// 6 = deleteElev
 	Elevator string //used in all other than 0
 	Floor    int //used in 0,2,4,5
-	Button   int //used in 0
+	Button   int //used in 0, 4
 	Behaviour string //used in 1, 5
 	Direction string //used in 3, 5
 	ServedOrder bool //used in 0, 4 - true if the elevator har completed an order and wants to clear it
@@ -65,14 +66,14 @@ type UpdateMsg struct {
 
 type StatusStruct struct {
 	HallRequests [][]bool `json:"hallRequests"`
-	States       map[string]StateValues `json:"states"` //key kan be changed to int if more practical but remember to cast to string before JSON encoding!
+	States       map[string]*StateValues `json:"states"` //key kan be changed to int if more practical but remember to cast to string before JSON encoding!
 }
 
 type StateValues struct {
 	Behaviour   string `json:"behaviour"`
 	Floor       int `json:"floor"`
 	Direction   string `json:"direction"`
-	CabRequests []bool `json:"cabRequest"`
+	CabRequests []bool `json:"cabRequests"`
 }
 /*-------------HOW TO INITIALIZE STATUS---------------
 status := new(StatusStruct) //todo: initilize with correct values
@@ -95,27 +96,30 @@ status.States = map[string]State_Values{
 
 func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
 	// ------------Commented out block until file is used-------------------
-	file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
-	check(err)
-	reader := bufio.NewReader(file)
+	//file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
+	//check(err)
+	//reader := bufio.NewReader(file)
 	//------------------------------------------------------------------------*/
 	status := new(StatusStruct)
 
 	if init{ //clean initialization
-		file, err = os.Create("status.txt")
-		check(err)
-		status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
-		status.States = map[string]StateValues{
-			id: {
-				Behaviour: "idle",
-				Floor: 0,
-				Direction: "stop",
-				CabRequests: []bool{false,false,false,false},
-				},
-			}
+		//file, err = os.Create("status.txt")
+		//check(err)
+
+
+		status.HallRequests = [][]bool{{false,false},{false,false},{false,true},{false,false}}
+		status.States = make(map[string]*StateValues)
+		
+		status.States[id] = new(StateValues)
+		
+		status.States[id].Behaviour = "idle"
+		status.States[id].Floor = 0
+		status.States[id].Direction = "stop"
+		status.States[id].CabRequests = []bool{false,false,false,false}
+			
 	} else {//recover status from file
-		e := json.NewDecoder(reader).Decode(&status)
-		check(e)
+		//e := json.NewDecoder(reader).Decode(&status)
+		//check(e)
 	}
 
 	for {
@@ -131,7 +135,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 							status.HallRequests[message.Floor][message.Button] = true
 							//TODO write to file
 						}
-
+						//fmt.Println(status)
 					case 1://new Behaviour
 						status.States[message.Elevator].Behaviour = message.Behaviour
 						//TODO: write to file
@@ -164,6 +168,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 						delete(status.States, message.Elevator)
 				}
 			case ElevStatus <- *status:
+				//fmt.Println()
 		}
 
 	}

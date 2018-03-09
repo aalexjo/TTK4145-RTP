@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"flag"
 	"./Driver/Elevio"
 	"./Status"
 	"./Network"
 	"./Network/network/localip"
-	//"./Fsm"
+	"./Fsm"
 	"os"
-	//"./cost"
+	"./Cost"
 )
 
 
@@ -49,9 +50,9 @@ func main() {
 
 	AssignGlobals()//TODO: assign more globals
 
-	StatusUpdate := make(chan Status.UpdateMsg) //sends updates that occured in the network to the status module
-	NetworkUpdate := make(chan Status.UpdateMsg)
-	ElevStatus := make(chan Status.StatusStruct)
+	StatusUpdate := make(chan status.UpdateMsg) //sends updates that occured in the network to the status module
+	NetworkUpdate := make(chan status.UpdateMsg)
+	ElevStatus := make(chan status.StatusStruct)
 	FSMinfo := make(chan cost.AssignedOrderInformation)
 
 	elevio.Init("localhost:15657", FLOORS)
@@ -61,7 +62,7 @@ func main() {
 	go fsm.Fsm(NetworkUpdate, FSMinfo, init, id)
 	go cost.Cost(FSMinfo, ElevStatus)
 
-	for{
+	select{
 	}
 
 }
