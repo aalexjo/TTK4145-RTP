@@ -54,11 +54,14 @@ func main() {
 	NetworkUpdate := make(chan status.UpdateMsg)
 	ElevStatus := make(chan status.StatusStruct)
 	FSMinfo := make(chan cost.AssignedOrderInformation)
+	StatusBroadcast := make(chan status.StatusStruct)
+	StatusRefresh := make(chan status.StatusStruct)
 
 	elevio.Init("localhost:15657", FLOORS)
 
-	go network.Network(StatusUpdate, NetworkUpdate, id)
-	go status.Status(ElevStatus, StatusUpdate, init, id)
+	//parameters on the form (output,output,...,input,input,...,string,int,...)
+	go network.Network(StatusUpdate, StatusRefresh, StatusBroadcast, NetworkUpdate, id)
+	go status.Status(ElevStatus, StatusBroadcast, StatusRefresh, StatusUpdate, init, id)
 	go fsm.Fsm(NetworkUpdate, FSMinfo, init, id)
 	go cost.Cost(FSMinfo, ElevStatus)
 

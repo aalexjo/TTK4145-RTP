@@ -27,24 +27,6 @@ JSON format for saving the status
 }
 */
 
-/*
-format of status.txt
-0010 	//bolean values for hall requests
-idle 	//behaviour of elev 1
-2		//floor of elev 1
-stop	//direction of elev 1
-0000	//cab requests of elev 1
-moving	//behaviour of elev 2
-2		//floor of elev 2
-up 		//direction of elev 2
-0010 	//cab Requests in elev 2
-idle	//behaviour of elev 3
-.
-.
-.
-*/
-
-
 type UpdateMsg struct {
 	//encoding of relevant update information
 	//copy from network module
@@ -54,13 +36,12 @@ type UpdateMsg struct {
 	// 2 = arrivedAtfloor
 	// 3 = newDirection
 	// 4 = cabRequest
-	// 5 = newElev
-	// 6 = deleteElev
+	// 5 = deleteElev
 	Elevator string //used in all other than 0
-	Floor    int //used in 0,2,4,5
+	Floor    int //used in 0, 2, 4
 	Button   int //used in 0, 4
-	Behaviour string //used in 1, 5
-	Direction string //used in 3, 5
+	Behaviour string //used in 1
+	Direction string //used in 3
 	ServedOrder bool //used in 0, 4 - true if the elevator har completed an order and wants to clear it
 }
 
@@ -75,26 +56,8 @@ type StateValues struct {
 	Direction   string `json:"direction"`
 	CabRequests []bool `json:"cabRequests"`
 }
-/*-------------HOW TO INITIALIZE STATUS---------------
-status := new(StatusStruct) //todo: initilize with correct values
-status.HallRequests = [][]bool{{false,false},{false,false},{false,false},{false,false}}
-status.States = map[string]State_Values{
-	"One": {
-		Behaviour: "moving",
-		Floor: 2,
-		Direction: "up",
-		CabRequests: []bool{false,false,false,true},
-		},
-	"Two": {
-		Behaviour: "moving",
-		Floor: 2,
-		Direction: "up",
-		CabRequests: []bool{false,false,false,true},
-		},
-	}
-------------------------------------------------------*/
 
-func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
+func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct, StatusRefresh <-chan status.StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
 	// ------------Commented out block until file is used-------------------
 	//file, err := os.OpenFile("status.txt", os.O_RDWR, 0777)
 	//check(err)
@@ -105,13 +68,12 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 	if init{ //clean initialization
 		//file, err = os.Create("status.txt")
 		//check(err)
-
+		//reader := bufio.NewReader(file)
 
 		status.HallRequests = [][]bool{{false,false},{false,false},{false,true},{false,false}}
 		status.States = make(map[string]*StateValues)
 		
 		status.States[id] = new(StateValues)
-		
 		status.States[id].Behaviour = "idle"
 		status.States[id].Floor = 0
 		status.States[id].Direction = "stop"
@@ -125,7 +87,15 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 	for {
 		select {
 			case message := <-StatusUpdate:
-				//	-check if elevator exists in status struct, handle if not
+				if message.Elevator != ""{
+					if _, ok := status.States[message.Elevator]; !ok{//Elevator is not i status struct, initialized with best guess
+						status.States[message.Elevator] = new(StateValues)
+						status.States[message.Elevator].Behaviour = message.Behaviour
+						status.States[message.Elevator].Floor = message.Floor
+						status.States[message.Elevator].Direction = message.Direction
+						status.States[message.Elevator].CabRequests = []bool{false,false,false,false}
+					}
+				}
 				switch message.MsgType{
 					case 0://hall request
 						if message.ServedOrder{
@@ -156,19 +126,16 @@ func Status(ElevStatus chan<- StatusStruct, StatusUpdate <-chan UpdateMsg, init 
 							status.States[message.Elevator].CabRequests[message.Floor] = true
 							//TODO write to file
 						}
-					case 5: //init message
-					/*
-							new_status.States[message.Elevator] = StateValues{
-							Behaviour: message.Behaviour,
-							Floor: message.Floor,
-							Direction: message.Direction,
-							CabRequests: []bool{false,false,false,false},
-						}*/
-					case 6:
+					case 5:
 						delete(status.States, message.Elevator)
 				}
+			case inputState <- StatusRefresh:
+
+
+
 			case ElevStatus <- *status:
-				//fmt.Println()
+			case StatusBroadcast <- *status:
+
 		}
 
 	}
