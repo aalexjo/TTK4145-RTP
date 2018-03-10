@@ -121,6 +121,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			if buttonEvent.Button < 2 { // If hall request
 				updateMessage.MsgType = 0
 				updateMessage.Button = int(buttonEvent.Button)
+				updateMessage.ServedOrder = false //Nytt knappetrykk
+				updateMessage.Elevator = elevID
+				//updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 				updateMessage.Floor = buttonEvent.Floor
 			} else {
 				updateMessage.MsgType = 4 //Cab request

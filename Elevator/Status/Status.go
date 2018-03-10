@@ -116,11 +116,12 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 				delete(status.States, message.Elevator)
 			}
 
-			e := json.NewEncoder(file).Encode(status)
-			check(e)
+			//e := json.NewEncoder(file).Encode(status)
+			//check(e)
 			file.Seek(0, 0)
 			//writer.Reset(writer)
-			//TODO write to file
+			//TODO write to file ^does not work as it should
+
 		case inputState := <-StatusRefresh: //only add orders and update states
 			//refresh hall requests
 			for floor := 0; floor < FLOORS; floor++ {
