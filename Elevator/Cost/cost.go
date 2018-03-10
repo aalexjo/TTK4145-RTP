@@ -28,7 +28,7 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 			if err != nil {
 				fmt.Println("error:", err)
 			}
-			//fmt.Println("Marshaled: ", string(arg))
+			fmt.Println("Marshaled: ", string(arg))
 
 			result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
 

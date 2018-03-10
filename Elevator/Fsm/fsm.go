@@ -123,12 +123,13 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				updateMessage.Button = int(buttonEvent.Button)
 				updateMessage.ServedOrder = false //Nytt knappetrykk
 				updateMessage.Elevator = elevID
-				//updateMessage.Behaviour = elev_state.States[elevID].Behaviour
+				updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 				updateMessage.Floor = buttonEvent.Floor
 			} else {
 				updateMessage.MsgType = 4 //Cab request
 				updateMessage.Floor = buttonEvent.Floor
 				updateMessage.Button = int(buttonEvent.Button)
+				updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 				updateMessage.ServedOrder = false //Nytt knappetrykk
 				updateMessage.Elevator = elevID
 			}
@@ -142,6 +143,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			/*--------------Message to send--------------------*/
 			updateMessage.MsgType = 2 //Arrived at floor
 			updateMessage.Floor = floor
+			updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 			updateMessage.Elevator = elevID
 			NetworkUpdate <- updateMessage
 
