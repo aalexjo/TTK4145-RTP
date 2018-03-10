@@ -1,11 +1,12 @@
 package peers
 
 import (
-	"../conn"
 	"fmt"
 	"net"
 	"sort"
 	"time"
+
+	"../conn"
 )
 
 type PeerUpdate struct {
@@ -66,7 +67,7 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 		for k, v := range lastSeen {
 			if time.Now().Sub(v) > timeout {
 				updated = true
-				p.Lost = "k"
+				p.Lost = k
 				delete(lastSeen, k)
 			}
 		}

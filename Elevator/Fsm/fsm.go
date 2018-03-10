@@ -9,14 +9,20 @@ import (
 	"../Status"
 )
 
-const FLOORS = 4
-const ELEVATORS = 1
-const BUTTONS = 3
+var FLOORS int
 
 //#TODO: Uncomment network message sending
+<<<<<<< HEAD
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
 	var updateMessage status.UpdateMsg
+=======
+//TODO: detect motor failure
+
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
+	var updateMessage status.UpdateMsg
+	updateMessage.Elevator = elevID
+>>>>>>> master
 	var elev_state cost.AssignedOrderInformation
 
 	in_buttons := make(chan elevio.ButtonEvent)
@@ -42,6 +48,22 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				}
 			}
 		}
+<<<<<<< HEAD
+=======
+	} else { //recovering from initialized system
+		elev_state = <-FSMinfo
+		if elev_state.States[elevID].Behaviour == "doorOpen" {
+			door_timed_out.Reset(3 * time.Second)
+		}
+		if elev_state.States[elevID].Behaviour == "moving" {
+			if elev_state.States[elevID].Direction == "up" {
+				elevio.SetMotorDirection(elevio.MD_Up)
+			} else {
+				elevio.SetMotorDirection(elevio.MD_Down)
+			}
+		}
+
+>>>>>>> master
 	}
 
 	for {
@@ -108,6 +130,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			if buttonEvent.Button < 2 { // If hall request
 				updateMessage.MsgType = 0
 				updateMessage.Button = int(buttonEvent.Button)
+				updateMessage.ServedOrder = false //Nytt knappetrykk
+				//updateMessage.Elevator = elevID
+				//updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 				updateMessage.Floor = buttonEvent.Floor
 			} else {
 				updateMessage.MsgType = 4 //Cab request
