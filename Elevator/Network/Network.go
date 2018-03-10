@@ -23,6 +23,8 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
+	TXchannel := make(chan status.UpdateMsg)
+
 	go peers.Transmitter(15647, id, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
@@ -59,12 +61,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 		case update := <-NetworkUpdate:
 			TXupdate <- update
 			StatusUpdate <- update
-			fmt.Println(update)
-		
-		case update := <-RXupdate:
-			if update.Elevator != id{
-				StatusUpdate <- update
-			}
 		}
 	}
 }

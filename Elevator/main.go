@@ -18,20 +18,11 @@ var ELEVATORS = 3
 
 func main() {
 
-	/*----TEST ELEVATOR STRUCT-------------
-	testElevator := fsm.State {
-	Behaviour: "idle",
-	Floor: 1,
-	Direction: elevio.MD_Stop,
-	Orders: [][]bool{{true, false, false},{false, false, false},{false, true, true},{false, true, false}},
-	}
-	//testNewOrderCh := make(chan fsm.NewOrder)
-	/*----------------------------------*/
-
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
 	var init bool
+
 	flag.BoolVar(&init, "init", false, "true if elev is starting for first time")
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()

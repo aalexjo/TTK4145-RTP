@@ -24,17 +24,18 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 	for{
 		select{
 			case status:= <-ElevStatus:
-					
 					arg, err := json.Marshal(status)
 					if err != nil {
 						fmt.Println("error:", err)
 					}
 
-					result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
 
+					result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
+					
 					if err != nil {
 						fmt.Println("error:", err)
 					}
+
 					orders := new(map[string][][]bool)
 					json.Unmarshal(result, orders)
 
@@ -43,9 +44,7 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 						HallRequests: status.HallRequests,
 						States: status.States,
 					}
-
-
-
+					fmt.Println(output)
 					FSMinfo<-output
 		}
 	}
