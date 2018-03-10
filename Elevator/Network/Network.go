@@ -40,7 +40,7 @@ type AckStruct struct {
 }
 
 func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.StatusStruct, StatusBroadcast <-chan status.StatusStruct, NetworkUpdate <-chan status.UpdateMsg, id string) {
-	var SeqNo = 0 //Denne må kanskje være et annet sted. Global??
+	//var SeqNo = 0 //Denne må kanskje være et annet sted. Global??
 	var peerlist peers.PeerUpdate
 
 	sentMessages := new(SentMessages)
@@ -71,17 +71,12 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	go bcast.Transmitter(16569, TXupdate, TXstate, AckSendChan) //TODO: fix ports
 	go bcast.Receiver(16569, RXupdate, StatusRefresh, AckRecChan)
 
-	//Timeout channel ---- CHANGE TO A BETTER TIMEOUT VALUE???-------
-	//ackInterval := time.NewTimer(15 * time.Millisecond)
-	//ackTimeout := time.NewTimer(50 * time.Millisecond)
-	//ackInterval.Stop()
-	//ackTimeout.Stop()
-
 	fmt.Println("Started")
 	for {
 		select {
 		case peerlist = <-peerUpdateCh:
-			AckSendChan <- ackMsg
+
+			//AckSendChan <- ackMsg
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", peerlist.Peers)
 			fmt.Printf("  New:      %q\n", peerlist.New)
@@ -105,7 +100,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				StatusUpdate <- update
 			}
 			if peerlist.New != "" {
-				//TXstate <- StatusBroadcast
+				TXstate <- <-StatusBroadcast
 				//ackTimeout.Reset(100 * time.Millisecond)
 			}
 		case update := <-NetworkUpdate:
@@ -121,6 +116,11 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			go ackTimer(TimeoutAckChan, newAckStruct)
 
 			StatusUpdate <- update
+
+		case update := <-RXupdate:
+			if update.Elevator != id {
+				StatusUpdate <- update
+			}
 
 			//Case when ack is not received
 

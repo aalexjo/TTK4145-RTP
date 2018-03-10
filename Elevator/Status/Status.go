@@ -118,7 +118,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 
 			//e := json.NewEncoder(file).Encode(status)
 			//check(e)
-			file.Seek(0, 0)
+			//file.Seek(0, 0)
 			//writer.Reset(writer)
 			//TODO write to file ^does not work as it should
 

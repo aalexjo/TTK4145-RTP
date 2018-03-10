@@ -11,18 +11,11 @@ import (
 
 var FLOORS int
 
-//#TODO: Uncomment network message sending
-<<<<<<< HEAD
-
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
-	var updateMessage status.UpdateMsg
-=======
 //TODO: detect motor failure
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
 	var updateMessage status.UpdateMsg
 	updateMessage.Elevator = elevID
->>>>>>> master
 	var elev_state cost.AssignedOrderInformation
 
 	in_buttons := make(chan elevio.ButtonEvent)
@@ -48,8 +41,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				}
 			}
 		}
-<<<<<<< HEAD
-=======
 	} else { //recovering from initialized system
 		elev_state = <-FSMinfo
 		if elev_state.States[elevID].Behaviour == "doorOpen" {
@@ -62,8 +53,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				elevio.SetMotorDirection(elevio.MD_Down)
 			}
 		}
-
->>>>>>> master
 	}
 
 	for {
@@ -160,14 +149,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			if shouldStop(elev_state, elevID, floor) {
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
-
-				/*
-				   //Stop message
-				   updateMessage.MsgType = 3
-				   updateMessage.Direction = "stop"
-				   updateMessage.Elevator = elevID
-				   NetworkUpdate <- updateMessage
-				*/
 
 				elevio.SetDoorOpenLamp(true)
 				door_timed_out.Reset(3 * time.Second)
