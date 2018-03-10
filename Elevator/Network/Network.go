@@ -1,14 +1,13 @@
 package network
 
 import (
-
 	"fmt"
 	//"os"
 
 	"./network/bcast"
 	//"./network/localip"
-	"./network/peers"
 	"../Status"
+	"./network/peers"
 )
 
 // We define some custom struct to send over the network.
@@ -45,24 +44,23 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-			if p.Lost != ""{
+			if p.Lost != "" {
 				update := status.UpdateMsg{
-					MsgType: 5,
+					MsgType:  5,
 					Elevator: p.Lost,
 				}
 				TXupdate <- update
 				StatusUpdate <- update
 			}
-			if p.New != ""{
-				//TXstate <- StatusBroadcast
+			if p.New != "" {
+				TXstate <- <-StatusBroadcast
 			}
 		case update := <-NetworkUpdate:
 			TXupdate <- update
 			StatusUpdate <- update
-			fmt.Println(update)
-		
+
 		case update := <-RXupdate:
-			if update.Elevator != id{
+			if update.Elevator != id {
 				StatusUpdate <- update
 			}
 		}
