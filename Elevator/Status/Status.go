@@ -27,6 +27,8 @@ JSON format for saving the status
 }
 */
 
+//TODO: Fix button presses under INIT???
+
 type UpdateMsg struct {
 	//encoding of relevant update information
 	//copy from network module
