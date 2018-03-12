@@ -17,12 +17,13 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	var updateMessage status.UpdateMsg
 	updateMessage.Elevator = elevID
 	var elev_state cost.AssignedOrderInformation
-
+	elev_state = <-FSMinfo
 	in_buttons := make(chan elevio.ButtonEvent)
 	in_floors := make(chan int)
 
 	door_timed_out := time.NewTimer(3 * time.Second)
 	door_timed_out.Stop()
+	//motor_timed_out := time.NewTimer(3 * time.Second)
 
 	go elevio.PollButtons(in_buttons)
 	go elevio.PollFloorSensor(in_floors)
@@ -45,7 +46,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			}
 		}
 	} else { //recovering from initialized system
-		elev_state = <-FSMinfo
 		if elev_state.States[elevID].Behaviour == "doorOpen" {
 			door_timed_out.Reset(3 * time.Second)
 		}
@@ -208,6 +208,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				NetworkUpdate <- updateMessage
 
 			}
+
 		}
 	}
 }

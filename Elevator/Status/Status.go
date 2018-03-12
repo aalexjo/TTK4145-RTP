@@ -82,7 +82,9 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 	} else { //recover status from file
 		e := json.NewDecoder(file).Decode(status)
 		check(e)
-		fmt.Println(status, "     ", status.States[id])
+		//fmt.Println(status, "     ", status.States[id])
+		arg, _ := json.Marshal(status)
+		fmt.Println(string(arg))
 	}
 
 	for {
@@ -168,9 +170,18 @@ func initNewElevator(elevName string, status *StatusStruct, Behaviour string, Fl
 		return
 	}
 	status.States[elevName] = new(StateValues)
-	status.States[elevName].Behaviour = Behaviour
+	if status.States[elevName].Behaviour == "" {
+		status.States[elevName].Behaviour = "idle"
+	} else {
+		status.States[elevName].Behaviour = Behaviour
+	}
+
 	status.States[elevName].Floor = Floor
-	status.States[elevName].Direction = Direction
+	if status.States[elevName].Direction == "" {
+		status.States[elevName].Direction = "up"
+	} else {
+		status.States[elevName].Direction = Behaviour
+	}
 	if len(cabRequests) != FLOORS {
 		status.States[elevName].CabRequests = make([]bool, FLOORS)
 	} else {
