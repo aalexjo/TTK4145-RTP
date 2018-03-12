@@ -32,6 +32,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	if init {
 		elevio.SetMotorDirection(elevio.MD_Down)
 		elevio.SetFloorIndicator(0)
+		updateMessage.Floor = 0
+		updateMessage.Behaviour = "idle"
+		updateMessage.Direction = "up"
 	L:
 		for {
 			select {

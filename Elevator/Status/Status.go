@@ -73,6 +73,9 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 		status.HallRequests = make([][2]bool, FLOORS)
 		status.States = make(map[string]*StateValues)
 		initNewElevator(id, status, "idle", 0, "stop", make([]bool, FLOORS))
+		file.Seek(0, 0)
+		e := json.NewEncoder(file).Encode(status)
+		check(e)
 
 	} else { //recover status from file
 		e := json.NewDecoder(file).Decode(status)
@@ -113,14 +116,14 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 					status.States[message.Elevator].CabRequests[message.Floor] = true
 				}
 			case 5:
-				delete(status.States, message.Elevator)
+				if message.Elevator != id {
+					delete(status.States, message.Elevator)
+					fmt.Println("deleting", message.Elevator)
+				}
 			}
-
-			//e := json.NewEncoder(file).Encode(status)
-			//check(e)
 			file.Seek(0, 0)
-			//writer.Reset(writer)
-			//TODO write to file ^does not work as it should
+			e := json.NewEncoder(file).Encode(status)
+			check(e)
 
 		case inputState := <-StatusRefresh: //only add orders and update states
 			//refresh hall requests

@@ -68,11 +68,10 @@ func atExit() {
 	sigchan := make(chan os.Signal, 10)
 	signal.Notify(sigchan, os.Interrupt)
 	<-sigchan
-	log.Println("Program killed !")
-
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	// do last actions and wait for all write operations to end
 
+	log.Println("Program killed !")
 	os.Exit(0)
 }
 

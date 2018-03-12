@@ -1,0 +1,4 @@
+{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"2":{"behaviour":"idle","floor":1,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+":{"behaviour":"idle","floor":1,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+}}}
+
