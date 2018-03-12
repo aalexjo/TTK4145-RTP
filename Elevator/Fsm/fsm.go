@@ -11,7 +11,6 @@ import (
 
 var FLOORS int
 
-//#TODO: Uncomment network message sending
 //TODO: detect motor failure
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
@@ -57,7 +56,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				elevio.SetMotorDirection(elevio.MD_Down)
 			}
 		}
-
 	}
 
 	for {
@@ -157,14 +155,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
 
-				/*
-				   //Stop message
-				   updateMessage.MsgType = 3
-				   updateMessage.Direction = "stop"
-				   updateMessage.Elevator = elevID
-				   NetworkUpdate <- updateMessage
-				*/
-
 				elevio.SetDoorOpenLamp(true)
 				door_timed_out.Reset(3 * time.Second)
 
@@ -223,7 +213,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 }
 
 func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
-	//fmt.Println(elev_state.AssignedOrders)
 	for floor := reachedFloor + 1; floor < FLOORS; floor++ {
 		if elev_state.States[elevID].CabRequests[floor] {
 			return true
@@ -238,13 +227,11 @@ func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reac
 }
 
 func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
-	//fmt.Println(elev_state.AssignedOrders)
 	for floor := 0; floor < reachedFloor; floor++ {
 		if elev_state.States[elevID].CabRequests[floor] {
 			return true
 		}
 		for button := 0; button < 2; button++ {
-			//fmt.Println("id =", elevID, "floor", floor, "button=", button)
 			if elev_state.AssignedOrders[elevID][floor][button] {
 				return true
 			}
