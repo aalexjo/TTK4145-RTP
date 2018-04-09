@@ -9,9 +9,21 @@ import (
 	"../Status"
 )
 
+/*
+This package implements the basic operation of the elevator and builds on the elevator driver.
+The module does not retain any information (other than the name) about the state of the elevator,
+but expects the information recived from the cost module through the channel FSMinfo to be current.
+This information includes the elevators current state and the orders that have been assigned to it,
+all logic that is needed to execute these orders is contained within this module.
+
+All updates that occur to the elevator are transmitted to the network module and are further processed there.
+The different update msgtypes can be seen in the status module.
+*/
+
 var FLOORS int
 
-//TODO: detect motor failure
+//TODO: test motor failure. worries: behaviour=stop is not enough and elevator must disconnect from network
+//TODO: if a button is pressed while door is open in the same floor, simply clear order and refresh door timer
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
 	var updateMessage status.UpdateMsg
@@ -20,22 +32,26 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	elev_state = <-FSMinfo
 	in_buttons := make(chan elevio.ButtonEvent)
 	in_floors := make(chan int)
+	in_floor_cont := make(chan int)
 
 	door_timed_out := time.NewTimer(3 * time.Second)
 	door_timed_out.Stop()
-	//motor_timed_out := time.NewTimer(3 * time.Second)
+	motor_timed_out := time.NewTimer(3 * time.Second)
+	motor_timed_out.Stop()
 
 	go elevio.PollButtons(in_buttons)
 	go elevio.PollFloorSensor(in_floors)
+	go elevio.PollFloorSensorCont(in_floor_cont)
 	fmt.Println("Fsm kjører nå.")
 
 	if init {
+		fmt.Println("init")
 		elevio.SetMotorDirection(elevio.MD_Down)
 		elevio.SetFloorIndicator(0)
 		updateMessage.Floor = 0
 		updateMessage.Behaviour = "idle"
 		updateMessage.Direction = "up"
-	L:
+	L: //lable loop in order to break the for loop
 		for {
 			select {
 			case floor := <-in_floors:
@@ -45,6 +61,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				}
 			}
 		}
+
 	} else { //recovering from initialized system
 		if elev_state.States[elevID].Behaviour == "doorOpen" {
 			door_timed_out.Reset(3 * time.Second)
@@ -208,9 +225,37 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				NetworkUpdate <- updateMessage
 
 			}
+		case <-in_floor_cont:
+			motor_timed_out.Reset(3 * time.Second)
 
+		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 3 seconds
+			//all other operation is interrupted (this needs not be the case)
+			updateMessage.MsgType = 1
+			updateMessage.Elevator = elevID
+			updateMessage.Direction = "stop"
+			NetworkUpdate <- updateMessage
+			direction := (<-FSMinfo).States[elevID].Direction
+		F:
+			for { //this block can simply be removed if it is desired that the elevator should still transmit orders
+				select {
+				case floor := <-in_floors:
+					fmt.Println("breakpls")
+					updateMessage.MsgType = 2
+					updateMessage.Elevator = elevID
+					updateMessage.Floor = floor
+					in_floors <- floor
+					break F //TODO: make sure we only break current for loop
+				}
+				if direction == "up" {
+					elevio.SetMotorDirection(elevio.MD_Up)
+				} else {
+					elevio.SetMotorDirection(elevio.MD_Down)
+				}
+			}
+			fmt.Println(<-FSMinfo)
 		}
 	}
+	fmt.Println("went to far FSM ended")
 }
 
 func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
