@@ -106,6 +106,16 @@ func PollFloorSensor(receiver chan<- int) {
 	}
 }
 
+func PollFloorSensorCont(receiver chan<- int) {
+	for {
+		time.Sleep(100*time.Millisecond)
+		v := getFloor()
+		if v != -1 {
+			receiver <- v
+		}
+	}
+}
+
 func PollStopButton(receiver chan<- bool) {
 	prev := false
 	for {

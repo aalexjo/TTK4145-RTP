@@ -44,7 +44,7 @@ type UpdateMsg struct {
 	Button      int    //used in 0, 4
 	Behaviour   string //used in 1
 	Direction   string //used in 3
-	ServedOrder bool   //used in 0, 4 - true if the elevator har completed an order and wants to clear it
+	ServedOrder bool   //used in 0, 4, 6 - true if the elevator has completed an order and wants to clear it
 }
 
 type StatusStruct struct {
