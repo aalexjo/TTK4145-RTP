@@ -1,2 +1,2 @@
-{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"1":{"behaviour":"idle","floor":3,"direction":"up","cabRequests":[false,false,false,false,false,false,false,false]}}}
+{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"peer-129.241.187.147-26727":{"behaviour":"idle","floor":1,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
 }}}
