@@ -86,6 +86,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				MsgType: 1,
 			}
 			AckSendChan <- ackMessage
+			newStatus <- status.Message
 		case notReceivedAck := <-TimeoutAckChan:
 			switch notReceivedAck.MsgType {
 			case 0: //UpdateMessages
