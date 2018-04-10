@@ -1,5 +1,16 @@
 package main
 
+//This is the entry point for the elevator project in TTK4145 Real time programming, made by Alexander Johansen and Bendik Standal.
+//The project consists of five modules tied together in this main package. The modules communicate through go channels according to the design
+//diagram found in the Design section of the project on github. The modules are: Cost, Fsm, Status, Network and Driver.
+//The Driver module contains all functions necessary to run/drive the physical elevator. The Cost module assigns all hall request orders based on a cost function
+//which utilises the information about every elevator, e.g. state, baheviour, cab orders, and determines which elevator should execute every order.
+//The Cost module communicates with the Status and Fsm modules, by using the state information from the Status module and passing the resulting order
+//assignments to the Fsm. The Fsm module uses the Driver to run the elevator based on the information it receives from the Cost module,
+//sets lights, reads sensors and ultimately sends everything to the Network module. The Status module contains the data for all peers in the Network
+//and sends this information to the Cost module. The Status module also receives all information from the Network module. The Network module consists of one information
+//and several submodules. The main module is the top layer for communicating between this peer itself in addition to other peers. The acknowledge submodule contains
+//the ack-logic for this system. It gives all messages sent a sequence number and sends acks for all messages received.
 import (
 	"flag"
 	"fmt"
