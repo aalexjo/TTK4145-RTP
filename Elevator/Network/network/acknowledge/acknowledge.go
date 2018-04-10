@@ -1,6 +1,7 @@
 package acknowledge
 
 import (
+	"fmt"
 	"time"
 
 	"../../../Status"
@@ -41,13 +42,11 @@ type StatusMessageStruct struct {
 	SeqNo   int
 }
 
+var ID string
 var seqNo = 0
 var updateMessageToSend UpdateMessageStruct
 var statusMessageToSend StatusMessageStruct
 var sentMessages = new(SentMessages)
-sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
-sentMessages.StatusMessages = make(map[int]status.StatusStruct)
-sentMessages.NumberOfTimesSent = make(map[int]int)
 
 //TODO: should these be private variables -> change starting letter to lower case
 var TXupdate = make(chan UpdateMessageStruct)
@@ -60,7 +59,7 @@ var TimeoutAckChan = make(chan AckMsg)
 
 //TODO: Differentiate on elevator id
 
-func ack() {
+func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct) {
 	sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
 	sentMessages.StatusMessages = make(map[int]status.StatusStruct)
 	sentMessages.NumberOfTimesSent = make(map[int]int)
@@ -73,10 +72,71 @@ func ack() {
 	for {
 		select {
 		case update := <-RXupdate:
+			ackMessage := AckMsg{
+				Id:      ID,
+				SeqNo:   update.SeqNo,
+				MsgType: 0,
+			}
+			AckSendChan <- ackMessage
+			newUpdate <- update.Message
+		case status := <-RXstate:
+			ackMessage := AckMsg{
+				Id:      ID,
+				SeqNo:   status.SeqNo,
+				MsgType: 1,
+			}
+			AckSendChan <- ackMessage
+		case notReceivedAck := <-TimeoutAckChan:
+			switch notReceivedAck.MsgType {
+			case 0: //UpdateMessages
+				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
+				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) { //Send på nytt hvis sendt 5 ganger
+					fmt.Println("No ack - packet loss - resending...")
 
+					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
+					updateMessageToSend.SeqNo = notReceivedAck.SeqNo
+					TXupdate <- updateMessageToSend
+					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
+					newAckStruct := AckStruct{
+						AckMessage: AckMsg{
+							Id:      notReceivedAck.Id,
+							SeqNo:   notReceivedAck.SeqNo,
+							MsgType: 0,
+						},
+						AckTimer: time.NewTimer(15 * time.Millisecond),
+					}
+					go ackTimer(TimeoutAckChan, newAckStruct)
+				}
+			case 1: //StatusMessages
+				_, ok := sentMessages.StatusMessages[notReceivedAck.SeqNo]
+				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) {
+					fmt.Println("No ack - packet loss - resending...")
+
+					statusMessageToSend.Message = sentMessages.StatusMessages[notReceivedAck.SeqNo]
+					statusMessageToSend.SeqNo = notReceivedAck.SeqNo
+					TXstate <- statusMessageToSend
+					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
+					newAckStruct := AckStruct{
+						AckMessage: AckMsg{
+							Id:      notReceivedAck.Id,
+							SeqNo:   notReceivedAck.SeqNo,
+							MsgType: 1,
+						},
+						AckTimer: time.NewTimer(15 * time.Millisecond),
+					}
+					go ackTimer(TimeoutAckChan, newAckStruct)
+				}
+			}
+		case recAck := <-AckRecChan:
+			delete(sentMessages.NumberOfTimesSent, recAck.SeqNo) //Delete from NumberOfTimesSent
+			switch recAck.MsgType {
+			case 0: //UpdateMessages
+				delete(sentMessages.UpdateMessages, recAck.SeqNo) //Delete from UpdateMessages
+			case 1: //StatusMessages
+				delete(sentMessages.StatusMessages, recAck.SeqNo) //Delete from StatusMessages
+			}
 		}
 	}
-
 }
 
 func SendUpdate(update status.UpdateMsg) {
@@ -89,14 +149,13 @@ func SendUpdate(update status.UpdateMsg) {
 
 	newAckStruct := AckStruct{
 		AckMessage: AckMsg{
-			Id:      id,
+			Id:      ID,
 			SeqNo:   seqNo,
 			MsgType: 0,
 		},
 		AckTimer: time.NewTimer(15 * time.Millisecond),
 	}
 	go ackTimer(TimeoutAckChan, newAckStruct)
-
 }
 
 func SendStatus(statusUpdate status.StatusStruct) {
@@ -108,11 +167,21 @@ func SendStatus(statusUpdate status.StatusStruct) {
 	sentMessages.NumberOfTimesSent[seqNo] = 1
 	newAckStruct := AckStruct{
 		AckMessage: AckMsg{
-			Id:      id,
+			Id:      ID,
 			SeqNo:   seqNo,
 			MsgType: 1,
 		},
 		AckTimer: time.NewTimer(15 * time.Millisecond),
 	}
 	go ackTimer(TimeoutAckChan, newAckStruct)
+}
+
+func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
+	for {
+		select {
+		case <-ackStruct.AckTimer.C:
+			TimeoutAckChan <- ackStruct.AckMessage
+			return
+		}
+	}
 }
