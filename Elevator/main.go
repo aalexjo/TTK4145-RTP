@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 
 	"./Cost"
@@ -19,16 +20,26 @@ const FLOORS = 8
 const ELEVATORS = 3
 
 func main() {
-
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
 	var init bool
 	var port string
-	flag.BoolVar(&init, "init", false, "true if elev is starting for first time")
+	flag.BoolVar(&init, "init", true, "false if elev is recovering")
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.StringVar(&port, "port", "15657", "set port to connect to elevator")
 	flag.Parse()
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("fatal panic, unable to recover. Rebooting...")
+		}
+		err := exec.Command("sh", "-c", "go run main.go -init=false -port=", port, " -id=", id).Run()
+		if err != nil {
+			fmt.Println("Unable to reboot process, crashing...")
+		}
+		os.Exit(0)
+	}()
 
 	// ... or alternatively, we can use the local IP address.
 	// (But since we can run multiple programs on the same PC, we also append the
@@ -57,7 +68,7 @@ func main() {
 	go atExit()
 	go network.Network(StatusUpdate, StatusRefresh, StatusBroadcast, NetworkUpdate, id)
 	go status.Status(ElevStatus, StatusBroadcast, StatusRefresh, StatusUpdate, init, id)
-	go fsm.Fsm(NetworkUpdate, FSMinfo, init, id)
+	go fsm.Fsm(NetworkUpdate, FSMinfo, init, id, port)
 	go cost.Cost(FSMinfo, ElevStatus)
 
 	select {}

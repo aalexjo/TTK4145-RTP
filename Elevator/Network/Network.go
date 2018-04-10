@@ -59,7 +59,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 
 		case status := <-newStatus:
 			StatusRefresh <- status
-			fmt.Println(status)
 		}
 	}
 }

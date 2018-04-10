@@ -2,6 +2,8 @@ package fsm
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"../Cost"
@@ -25,7 +27,17 @@ var FLOORS int
 //TODO: test motor failure. worries: behaviour=stop is not enough and elevator must disconnect from network
 //TODO: if a button is pressed while door is open in the same floor, simply clear order and refresh door timer
 
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string) {
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string, port string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r, "fsm fatal panic, unable to recover. Rebooting...")
+		}
+		err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run ../main.go -init=false -port=", port, " -id=", elevID).Run()
+		if err != nil {
+			fmt.Println("Unable to reboot process, crashing...")
+		}
+		os.Exit(0)
+	}()
 	var updateMessage status.UpdateMsg
 	updateMessage.Elevator = elevID
 	var elev_state cost.AssignedOrderInformation
@@ -277,7 +289,7 @@ func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reac
 		if elev_state.States[elevID].CabRequests[floor] {
 			return true
 		}
-		for button := 0; button < 2; button++ {
+		for button := 0; button < 3; button++ { //!!!!!! intentionally crashes program for testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			if elev_state.AssignedOrders[elevID][floor][button] {
 				return true
 			}

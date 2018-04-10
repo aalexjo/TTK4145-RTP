@@ -35,7 +35,8 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 			//fmt.Println("Result fra command: ", string(result))
 
 			if err != nil {
-				fmt.Println("error:", err)
+				fmt.Println("error:", err, "cost function")
+				continue
 			}
 			orders := new(map[string][][]bool)
 			json.Unmarshal(result, orders)
