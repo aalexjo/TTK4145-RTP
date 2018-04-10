@@ -2,19 +2,22 @@ package network
 
 import (
 	"fmt"
-	"time"
 
 	"../Status"
+	"./network/acknowledge"
 	"./network/peers"
 )
 
 // We define some custom struct to send over the network.
 // Note that all members we want to transmit must be public. Any private members
 //  will be received as zero-values.
-
 func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.StatusStruct, StatusBroadcast <-chan status.StatusStruct, NetworkUpdate <-chan status.UpdateMsg, id string) {
 	var peerlist peers.PeerUpdate
 
+	newUpdate := make(chan status.UpdateMsg)
+	newStatus := make(chan status.StatusStruct)
+	acknowledge.ID = id
+	go acknowledge.Ack(newUpdate, newStatus)
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
 	peerUpdateCh := make(chan peers.PeerUpdate)
@@ -43,92 +46,20 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			}
 			if peerlist.New != "" {
 				acknowledge.SendStatus(<-StatusBroadcast)
+				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
 			acknowledge.SendUpdate(update)
 			StatusUpdate <- update
 
-		case update := <-RXupdate:
-			ackMessage := AckMsg{
-				Id:      id,
-				SeqNo:   update.SeqNo,
-				MsgType: 0,
+		case update := <-newUpdate:
+			if update.Elevator != id {
+				StatusUpdate <- update
 			}
-			AckSendChan <- ackMessage
-			if update.Message.Elevator != id {
-				StatusUpdate <- update.Message
-			}
-		case update := <-RXstate:
-			StatusRefresh <- update.Message
-			ackMessage := AckMsg{
-				Id:      id,
-				SeqNo:   update.SeqNo,
-				MsgType: 1,
-			}
-			AckSendChan <- ackMessage
 
-			//Acks and timeouts
-		case notReceivedAck := <-TimeoutAckChan:
-			switch notReceivedAck.MsgType {
-			case 0: //UpdateMessages
-				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
-				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) { //Send på nytt hvis sendt 5 ganger
-					fmt.Println("No ack - packet loss - resending...")
-
-					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
-					updateMessageToSend.SeqNo = notReceivedAck.SeqNo
-					TXupdate <- updateMessageToSend
-					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
-					newAckStruct := AckStruct{
-						AckMessage: AckMsg{
-							Id:      notReceivedAck.Id,
-							SeqNo:   notReceivedAck.SeqNo,
-							MsgType: 0,
-						},
-						AckTimer: time.NewTimer(15 * time.Millisecond),
-					}
-					go ackTimer(TimeoutAckChan, newAckStruct)
-				}
-			case 1: //StatusMessages
-				_, ok := sentMessages.StatusMessages[notReceivedAck.SeqNo]
-				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) {
-					fmt.Println("No ack - packet loss - resending...")
-
-					statusMessageToSend.Message = sentMessages.StatusMessages[notReceivedAck.SeqNo]
-					statusMessageToSend.SeqNo = notReceivedAck.SeqNo
-					TXstate <- statusMessageToSend
-					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
-					newAckStruct := AckStruct{
-						AckMessage: AckMsg{
-							Id:      notReceivedAck.Id,
-							SeqNo:   notReceivedAck.SeqNo,
-							MsgType: 1,
-						},
-						AckTimer: time.NewTimer(15 * time.Millisecond),
-					}
-					go ackTimer(TimeoutAckChan, newAckStruct)
-				}
-			}
-		case recAck := <-AckRecChan:
-			delete(sentMessages.NumberOfTimesSent, recAck.SeqNo) //Delete from NumberOfTimesSent
-			switch recAck.MsgType {
-			case 0: //UpdateMessages
-				delete(sentMessages.UpdateMessages, recAck.SeqNo) //Delete from UpdateMessages
-			case 1: //StatusMessages
-				delete(sentMessages.StatusMessages, recAck.SeqNo) //Delete from StatusMessages
-			}
-		}
-	}
-}
-
-func sendUpdate()
-
-func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
-	for {
-		select {
-		case <-ackStruct.AckTimer.C:
-			TimeoutAckChan <- ackStruct.AckMessage
-			return
+		case status := <-newStatus:
+			StatusRefresh <- status
+			fmt.Println(status)
 		}
 	}
 }

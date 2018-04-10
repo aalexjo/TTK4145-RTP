@@ -1,5 +1,1 @@
-{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,true],[false,true],[false,true]],"states":{"peer-129.241.187.147-12748":{"behaviour":"moving","floor":4,"direction":"up","cabRequests":[false,false,false,false,false,false,false,false]},"peer-129.241.187.147-16166":{"behaviour":"idle","floor":4,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]},"peer-129.241.187.147-19914":{"behaviour":"doorOpen","floor":3,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]},"peer-129.241.187.149-19767":{"behaviour":"moving","floor":1,"direction":"up","cabRequests":[false,false,false,false,false,false,false,false]}}}
-}
-}
-}
-}
+{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"peer-129.241.187.29-25906":{"behaviour":"idle","floor":5,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
