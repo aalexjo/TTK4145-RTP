@@ -243,7 +243,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 					updateMessage.MsgType = 2
 					updateMessage.Elevator = elevID
 					updateMessage.Floor = floor
-					in_floors <- floor
+					//in_floors <- floor
 					break F //TODO: make sure we only break current for loop
 				}
 				if direction == "up" {
@@ -255,7 +255,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			fmt.Println(<-FSMinfo)
 		}
 	}
-	fmt.Println("went to far FSM ended")
+	fmt.Println("went too far FSM ended")
 }
 
 func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
