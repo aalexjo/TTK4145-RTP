@@ -90,7 +90,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 			switch notReceivedAck.MsgType {
 			case 0: //UpdateMessages
 				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
-				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) { //Send på nytt hvis sendt 5 ganger
+				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Send på nytt hvis sendt 5 ganger
 					fmt.Println("No ack - packet loss - resending...")
 
 					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]

@@ -1,2 +1,8 @@
-{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"peer-129.241.187.29-27672":{"behaviour":"idle","floor":2,"direction":"up","cabRequests":[false,false,false,false,false,false,false,false]}}}
-}}}
+{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[true,true],[false,true],[false,false],[false,false]],"states":{"peer-129.241.187.29-8689":{"behaviour":"doorOpen","floor":3,"direction":"up","cabRequests":[false,false,false,false,false,false,false,false]}}}
+41.187.29-8689":{"behaviour":"moving","floor":4,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+
+
+
+
+
+
