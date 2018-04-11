@@ -127,6 +127,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 			}
 			file.Seek(0, 0)
 			e := json.NewEncoder(file).Encode(status)
+			fmt.Println("writing to file")
 			check(e)
 
 		case inputState := <-StatusRefresh: //only add orders and update states

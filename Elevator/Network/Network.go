@@ -41,7 +41,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 					MsgType:  5,
 					Elevator: peerlist.Lost,
 				}
-				acknowledge.SendUpdate(update)
+				//acknowledge.SendUpdate(update)
 				StatusUpdate <- update
 			}
 			if peerlist.New != "" {

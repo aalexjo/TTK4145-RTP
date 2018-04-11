@@ -1,1 +1,6 @@
-{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"1":{"behaviour":"doorOpen","floor":0,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+{"hallRequests":[[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false],[false,false]],"states":{"1":{"behaviour":"idle","floor":0,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+}}}
+":{"behaviour":"idle","floor":4,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+":{"behaviour":"idle","floor":4,"direction":"down","cabRequests":[false,false,false,false,false,false,false,false]}}}
+}}}
+}
