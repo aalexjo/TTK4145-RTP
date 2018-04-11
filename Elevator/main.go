@@ -18,6 +18,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
+	"time"
 
 	"./Cost"
 	"./Driver/Elevio"
@@ -31,6 +33,7 @@ const FLOORS = 8
 const ELEVATORS = 3
 
 func main() {
+	time.Sleep(400 * time.Millisecond)
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
@@ -40,14 +43,17 @@ func main() {
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.StringVar(&port, "port", "15657", "set port to connect to elevator")
 	flag.Parse()
+	port = strings.Replace(port, " ", "", -1) //remove all spaces
+	id = strings.Replace(id, " ", "", -1)
+	fmt.Println(port)
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("fatal panic, unable to recover. Rebooting...")
-		}
-		err := exec.Command("sh", "-c", "go run main.go -init=false -port=", port, " -id=", id).Run()
-		if err != nil {
-			fmt.Println("Unable to reboot process, crashing...")
+			fmt.Println("fatal panic, unable to recover. Rebooting...", "go run main.go -init=true -port=", port, " -id=", id)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=true -port=", port, " -id=", id).Run()
+			if err != nil {
+				fmt.Println("Unable to reboot process, crashing...")
+			}
 		}
 		os.Exit(0)
 	}()

@@ -28,13 +28,15 @@ var FLOORS int
 //TODO: if a button is pressed while door is open in the same floor, simply clear order and refresh door timer
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string, port string) {
+
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, "fsm fatal panic, unable to recover. Rebooting...")
-		}
-		err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run ../main.go -init=false -port=", port, " -id=", elevID).Run()
-		if err != nil {
-			fmt.Println("Unable to reboot process, crashing...")
+			fmt.Println("fatal panic, unable to recover. Rebooting...", "go run main.go -init=true -port=", port, " -id=", elevID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port=", port, " -id=", elevID).Run()
+			if err != nil {
+				fmt.Println("Unable to reboot process, crashing...")
+			}
 		}
 		os.Exit(0)
 	}()
