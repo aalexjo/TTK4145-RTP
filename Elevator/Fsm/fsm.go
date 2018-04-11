@@ -254,9 +254,12 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			updateMessage.Direction = "stop"
 			fmt.Println("motor broke")
 			NetworkUpdate <- updateMessage
-<<<<<<< HEAD
+			stop_blink_timer := time.NewTimer(1 * time.Second)
+			toggle := false
+			//TODO: Set lights as they should?
 			lastFloor := currInfo.States[elevID].Floor
 			lastDir := currInfo.States[elevID].Direction
+
 		F:
 			for { //this block can simply be removed if it is desired that the elevator should still transmit orders while out of order
 				select {
@@ -277,31 +280,10 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 					} else {
 						elevio.SetMotorDirection(elevio.MD_Down)
 					}
-=======
-			direction := (<-FSMinfo).States[elevID].Direction
-			stop_blink_timer := time.NewTimer(1 * time.Second)
-			toggle := false
-			//TODO: Set lights as they should?
-		F:
-			for { //this block can simply be removed if it is desired that the elevator should still transmit orders
-				select { //TODO: Try to start the motor periodically?
-				case floor := <-in_floors:
-					fmt.Println("breakpls")
-					updateMessage.MsgType = 2
-					updateMessage.Elevator = elevID
-					updateMessage.Floor = floor
-
-					break F //TODO: make sure we only break current for loop <- Is this not what we are already doing?
 				case <-stop_blink_timer.C:
 					toggle = !toggle
 					elevio.SetStopLamp(toggle)
 					stop_blink_timer.Reset(1 * time.Second)
-				}
-				if direction == "up" {
-					elevio.SetMotorDirection(elevio.MD_Up)
-				} else {
-					elevio.SetMotorDirection(elevio.MD_Down)
->>>>>>> benny
 				}
 			}
 
