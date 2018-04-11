@@ -18,7 +18,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"time"
 
 	"./Cost"
@@ -43,14 +42,11 @@ func main() {
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.StringVar(&port, "port", "15657", "set port to connect to elevator")
 	flag.Parse()
-	port = strings.Replace(port, " ", "", -1) //remove all spaces
-	id = strings.Replace(id, " ", "", -1)
-	fmt.Println(port)
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("fatal panic, unable to recover. Rebooting...", "go run main.go -init=true -port=", port, " -id=", id)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=true -port=", port, " -id=", id).Run()
+			fmt.Println(r, " MAIN fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id=", id)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port, " -id="+id).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}

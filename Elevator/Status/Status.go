@@ -82,7 +82,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 	} else { //recover status from file
 		e := json.NewDecoder(file).Decode(status)
 		check(e)
-		fmt.Println(status, "FRom file", status.States[id])
+		fmt.Println("From file", status, "        ", status.States[id])
 		arg, _ := json.Marshal(status)
 		fmt.Println(string(arg))
 	}
