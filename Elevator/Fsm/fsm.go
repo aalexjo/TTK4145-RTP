@@ -31,8 +31,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println(r, " - fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port=", port, " -id=", elevID)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port, " -id=", elevID).Run()
+			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port + " -id="+elevID).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
@@ -290,7 +290,7 @@ func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reac
 		if elev_state.States[elevID].CabRequests[floor] {
 			return true
 		}
-		for button := 0; button < 3; button++ { //!!!!!! intentionally crashes program for testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		for button := 0; button < 2; button++ { 
 			if elev_state.AssignedOrders[elevID][floor][button] {
 				return true
 			}
