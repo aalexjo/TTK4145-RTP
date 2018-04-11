@@ -16,8 +16,9 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 
 	newUpdate := make(chan status.UpdateMsg)
 	newStatus := make(chan status.StatusStruct)
+	ackPeerUpdate := make(chan peers.PeerUpdate)
 	acknowledge.ID = id
-	go acknowledge.Ack(newUpdate, newStatus)
+	go acknowledge.Ack(newUpdate, newStatus, ackPeerUpdate)
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
 	peerUpdateCh := make(chan peers.PeerUpdate)
@@ -36,6 +37,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			fmt.Printf("  New:      %q\n", peerlist.New)
 			fmt.Printf("  Lost:     %q\n", peerlist.Lost)
 
+			ackPeerUpdate <- peerlist
 			if peerlist.Lost != "" {
 				update := status.UpdateMsg{
 					MsgType:  5,

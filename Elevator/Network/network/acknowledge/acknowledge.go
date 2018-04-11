@@ -6,6 +6,7 @@ import (
 
 	"../../../Status"
 	"../bcast"
+	"../peers"
 )
 
 /*---------------------Ack message struct---------------------
@@ -24,7 +25,8 @@ type AckMsg struct {
 type SentMessages struct {
 	UpdateMessages    map[int]status.UpdateMsg
 	StatusMessages    map[int]status.StatusStruct
-	NumberOfTimesSent map[int]int
+	NumberOfTimesSent map[int]int      //Number of times sent for each sequence no
+	NotRecFromPeer    map[int][]string //Acks not received from active peers per seq. no.
 }
 
 type AckStruct struct {
@@ -47,6 +49,7 @@ var seqNo = 0
 var updateMessageToSend UpdateMessageStruct
 var statusMessageToSend StatusMessageStruct
 var sentMessages = new(SentMessages)
+var peerlist peers.PeerUpdate
 
 //TODO: should these be private variables -> change starting letter to lower case
 var TXupdate = make(chan UpdateMessageStruct)
@@ -59,10 +62,12 @@ var TimeoutAckChan = make(chan AckMsg)
 
 //TODO: Differentiate on elevator id
 
-func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct) {
+func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
 	sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
 	sentMessages.StatusMessages = make(map[int]status.StatusStruct)
 	sentMessages.NumberOfTimesSent = make(map[int]int)
+	sentMessages.NotRecFromPeer = make(map[int][]string)
+
 	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
@@ -91,7 +96,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 			switch notReceivedAck.MsgType {
 			case 0: //UpdateMessages
 				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
-				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Send på nytt hvis sendt 5 ganger
+				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Resend if sent <10 times
 					fmt.Println("No ack - packet loss - resending...")
 
 					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
@@ -110,7 +115,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			case 1: //StatusMessages
 				_, ok := sentMessages.StatusMessages[notReceivedAck.SeqNo]
-				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 5) {
+				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) {
 					fmt.Println("No ack - packet loss - resending...")
 
 					statusMessageToSend.Message = sentMessages.StatusMessages[notReceivedAck.SeqNo]
@@ -129,12 +134,32 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			}
 		case recAck := <-AckRecChan:
-			delete(sentMessages.NumberOfTimesSent, recAck.SeqNo) //Delete from NumberOfTimesSent
-			switch recAck.MsgType {
-			case 0: //UpdateMessages
-				delete(sentMessages.UpdateMessages, recAck.SeqNo) //Delete from UpdateMessages
-			case 1: //StatusMessages
-				delete(sentMessages.StatusMessages, recAck.SeqNo) //Delete from StatusMessages
+			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the seqno has been deleted unexpectedly
+			if ok {
+				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
+				if ind != -1 {
+					sentMessages.NotRecFromPeer[recAck.SeqNo] = removeFromSlice(sentMessages.NotRecFromPeer[recAck.SeqNo], ind)
+					if len(sentMessages.NotRecFromPeer[recAck.SeqNo]) == 0 {
+						delete(sentMessages.NotRecFromPeer, recAck.SeqNo)
+						delete(sentMessages.NumberOfTimesSent, recAck.SeqNo) //Delete from NumberOfTimesSent
+						switch recAck.MsgType {
+						case 0: //UpdateMessages
+							delete(sentMessages.UpdateMessages, recAck.SeqNo) //Delete from UpdateMessages
+						case 1: //StatusMessages
+							delete(sentMessages.StatusMessages, recAck.SeqNo) //Delete from StatusMessages
+						}
+					}
+				}
+			}
+			//Should delete peer from NotRecFromPeer
+		case peerlist = <-peerUpdate:
+			if peerlist.Lost != "" {
+				for seqNo, peers := range sentMessages.NotRecFromPeer {
+					ind := stringInSlice(peerlist.Lost, peers)
+					if ind != -1 {
+						sentMessages.NotRecFromPeer[seqNo] = removeFromSlice(sentMessages.NotRecFromPeer[seqNo], ind)
+					}
+				}
 			}
 		}
 	}
@@ -147,6 +172,7 @@ func SendUpdate(update status.UpdateMsg) {
 	TXupdate <- updateMessageToSend
 	sentMessages.UpdateMessages[seqNo] = update
 	sentMessages.NumberOfTimesSent[seqNo] = 1
+	sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
 
 	newAckStruct := AckStruct{
 		AckMessage: AckMsg{
@@ -166,6 +192,8 @@ func SendStatus(statusUpdate status.StatusStruct) {
 	TXstate <- statusMessageToSend
 	sentMessages.StatusMessages[seqNo] = statusMessageToSend.Message
 	sentMessages.NumberOfTimesSent[seqNo] = 1
+	sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
+
 	newAckStruct := AckStruct{
 		AckMessage: AckMsg{
 			Id:      ID,
@@ -185,4 +213,19 @@ func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
 			return
 		}
 	}
+}
+
+//Utilities for arrays in golang
+func stringInSlice(a string, list []string) int {
+	for ind, b := range list {
+		if b == a {
+			return ind
+		}
+	}
+	return -1
+}
+
+func removeFromSlice(s []string, i int) []string {
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
 }
