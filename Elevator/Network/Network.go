@@ -49,6 +49,12 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
+			if update.Direction == "stop" {
+				fmt.Println("disable TX")
+				peerTxEnable <- false
+			} else {
+				peerTxEnable <- true
+			}
 			acknowledge.SendUpdate(update)
 			StatusUpdate <- update
 

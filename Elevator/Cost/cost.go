@@ -36,6 +36,7 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 
 			if err != nil {
 				fmt.Println("error:", err, "cost function")
+				fmt.Println("recived:", string(arg))
 				continue
 			}
 			orders := new(map[string][][]bool)

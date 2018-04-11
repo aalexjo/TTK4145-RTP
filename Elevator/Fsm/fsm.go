@@ -32,7 +32,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port + " -id="+elevID).Run()
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
@@ -49,7 +49,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 	door_timed_out := time.NewTimer(3 * time.Second)
 	door_timed_out.Stop()
-	motor_timed_out := time.NewTimer(3 * time.Second)
+	motor_timed_out := time.NewTimer(4 * time.Second)
 	motor_timed_out.Stop()
 
 	go elevio.PollButtons(in_buttons)
@@ -116,6 +116,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 				case elevio.MD_Up:
 					elevio.SetMotorDirection(newDirection)
+					motor_timed_out.Reset(4 * time.Second)
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "up"
@@ -130,6 +131,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 				case elevio.MD_Down:
 					elevio.SetMotorDirection(newDirection)
+					motor_timed_out.Reset(4 * time.Second)
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "down"
@@ -177,6 +179,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 			updateMessage.Elevator = elevID
 			NetworkUpdate <- updateMessage
+			motor_timed_out.Stop()
 
 			fmt.Println("Reached floor: ", floor)
 			elevio.SetFloorIndicator(floor)
@@ -211,6 +214,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 			case elevio.MD_Up:
 				elevio.SetMotorDirection(newDirection)
+				motor_timed_out.Reset(4 * time.Second)
 				//Direction Message
 				updateMessage.MsgType = 3
 				updateMessage.Direction = "up"
@@ -225,6 +229,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 			case elevio.MD_Down:
 				elevio.SetMotorDirection(newDirection)
+				motor_timed_out.Reset(4 * time.Second)
 				//Direction Message
 				updateMessage.MsgType = 3
 				updateMessage.Direction = "down"
@@ -239,32 +244,41 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 
 			}
 		case <-in_floor_cont:
-			motor_timed_out.Reset(3 * time.Second)
+			motor_timed_out.Reset(4 * time.Second)
 
 		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 3 seconds
 			//all other operation is interrupted (this needs not be the case)
+			currInfo := <-FSMinfo
 			updateMessage.MsgType = 1
 			updateMessage.Elevator = elevID
 			updateMessage.Direction = "stop"
+			fmt.Println("motor broke")
 			NetworkUpdate <- updateMessage
-			direction := (<-FSMinfo).States[elevID].Direction
+			lastFloor := currInfo.States[elevID].Floor
+			lastDir := currInfo.States[elevID].Direction
 		F:
-			for { //this block can simply be removed if it is desired that the elevator should still transmit orders
+			for { //this block can simply be removed if it is desired that the elevator should still transmit orders while out of order
 				select {
-				case floor := <-in_floors:
-					fmt.Println("breakpls")
-					updateMessage.MsgType = 2
-					updateMessage.Elevator = elevID
-					updateMessage.Floor = floor
-					//in_floors <- floor
-					break F //TODO: make sure we only break current for loop
-				}
-				if direction == "up" {
-					elevio.SetMotorDirection(elevio.MD_Up)
-				} else {
-					elevio.SetMotorDirection(elevio.MD_Down)
+				case floor := <-in_floor_cont:
+					if floor != lastFloor {
+						fmt.Println("breakpls")
+						updateMessage.MsgType = 2
+						updateMessage.Elevator = elevID
+						updateMessage.Floor = floor
+						updateMessage.Direction = lastDir
+						NetworkUpdate <- updateMessage
+						motor_timed_out.Reset(4 * time.Second)
+						motor_timed_out.Stop()
+						break F
+					}
+					if lastDir == "up" {
+						elevio.SetMotorDirection(elevio.MD_Up)
+					} else {
+						elevio.SetMotorDirection(elevio.MD_Down)
+					}
 				}
 			}
+
 			fmt.Println(<-FSMinfo)
 		}
 	}
@@ -290,7 +304,7 @@ func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reac
 		if elev_state.States[elevID].CabRequests[floor] {
 			return true
 		}
-		for button := 0; button < 2; button++ { 
+		for button := 0; button < 2; button++ {
 			if elev_state.AssignedOrders[elevID][floor][button] {
 				return true
 			}
