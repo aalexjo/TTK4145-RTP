@@ -1,5 +1,15 @@
 package fsm
 
+/*
+This package implements the basic operation of the elevator and builds on the elevator driver.
+The module does not retain any information (other than the name) about the state of the elevator,
+but expects the information recived from the cost module through the channel FSMinfo to be current.
+This information includes the elevators current state and the orders that have been assigned to it,
+all logic that is needed to execute these orders is contained within this module.
+
+All updates that occur to the elevator are transmitted to the network module and are further processed there.
+The different updatemessage types are described in the Status module.
+*/
 import (
 	"fmt"
 	"os"
@@ -11,24 +21,13 @@ import (
 	"../Status"
 )
 
-/*
-This package implements the basic operation of the elevator and builds on the elevator driver.
-The module does not retain any information (other than the name) about the state of the elevator,
-but expects the information recived from the cost module through the channel FSMinfo to be current.
-This information includes the elevators current state and the orders that have been assigned to it,
-all logic that is needed to execute these orders is contained within this module.
-
-All updates that occur to the elevator are transmitted to the network module and are further processed there.
-The different update msgtypes can be seen in the status module.
-*/
-
 var FLOORS int
 
 //TODO: test motor failure. worries: behaviour=stop is not enough and elevator must disconnect from network
 //TODO: if a button is pressed while door is open in the same floor, simply clear order and refresh door timer
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string, port string) {
-
+	//Handling unexpected panic errors. Spawns a new process and initializing from a saved state.
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
@@ -39,6 +38,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 		}
 		os.Exit(0)
 	}()
+
 	var updateMessage status.UpdateMsg
 	updateMessage.Elevator = elevID
 	var elev_state cost.AssignedOrderInformation
@@ -64,7 +64,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 		updateMessage.Floor = 0
 		updateMessage.Behaviour = "idle"
 		updateMessage.Direction = "up"
-	L: //lable loop in order to break the for loop
+	L: //label loop in order to break the for loop
 		for {
 			select {
 			case floor := <-in_floors:
@@ -254,6 +254,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			updateMessage.Direction = "stop"
 			fmt.Println("motor broke")
 			NetworkUpdate <- updateMessage
+<<<<<<< HEAD
 			lastFloor := currInfo.States[elevID].Floor
 			lastDir := currInfo.States[elevID].Direction
 		F:
@@ -276,6 +277,31 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 					} else {
 						elevio.SetMotorDirection(elevio.MD_Down)
 					}
+=======
+			direction := (<-FSMinfo).States[elevID].Direction
+			stop_blink_timer := time.NewTimer(1 * time.Second)
+			toggle := false
+			//TODO: Set lights as they should?
+		F:
+			for { //this block can simply be removed if it is desired that the elevator should still transmit orders
+				select { //TODO: Try to start the motor periodically?
+				case floor := <-in_floors:
+					fmt.Println("breakpls")
+					updateMessage.MsgType = 2
+					updateMessage.Elevator = elevID
+					updateMessage.Floor = floor
+
+					break F //TODO: make sure we only break current for loop <- Is this not what we are already doing?
+				case <-stop_blink_timer.C:
+					toggle = !toggle
+					elevio.SetStopLamp(toggle)
+					stop_blink_timer.Reset(1 * time.Second)
+				}
+				if direction == "up" {
+					elevio.SetMotorDirection(elevio.MD_Up)
+				} else {
+					elevio.SetMotorDirection(elevio.MD_Down)
+>>>>>>> benny
 				}
 			}
 
