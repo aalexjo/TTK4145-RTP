@@ -46,12 +46,12 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				//acknowledge.SendUpdate(update)
 				StatusUpdate <- update
 			}
-			if peerlist.New != "" { //TODO: Uncomment this?
-				//acknowledge.SendStatus(<-StatusBroadcast)
+			if peerlist.New != "" {
+				acknowledge.SendStatus(<-StatusBroadcast)
 				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
-			if update.Direction == "stop" {
+			if update.MsgType == 8 { //update.Direction == "stop" && update.MsgType == 3 {
 				fmt.Println("disable TX")
 				peerTxEnable <- false
 			} else {

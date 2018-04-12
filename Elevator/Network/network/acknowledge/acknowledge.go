@@ -135,9 +135,9 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			}
 		case recAck := <-AckRecChan:
-			fmt.Println("før ackreceived: ", sentMessages.NotRecFromPeer)
-			fmt.Println("før, updates: ", sentMessages.UpdateMessages)
-			fmt.Println("før, state: ", sentMessages.StatusMessages)
+			//fmt.Println("før ackreceived: ", sentMessages.NotRecFromPeer)
+			//fmt.Println("før, updates: ", sentMessages.UpdateMessages)
+			//fmt.Println("før, state: ", sentMessages.StatusMessages)
 			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the seqno has been deleted unexpectedly
 			if ok {
 				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
@@ -154,21 +154,21 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 						}
 					}
 				}
-				fmt.Println("etter ackreceived: ", sentMessages.NotRecFromPeer)
-				fmt.Println("etter, updates: ", sentMessages.UpdateMessages)
-				fmt.Println("etter, state: ", sentMessages.StatusMessages)
+				//fmt.Println("etter ackreceived: ", sentMessages.NotRecFromPeer)
+				//fmt.Println("etter, updates: ", sentMessages.UpdateMessages)
+				//fmt.Println("etter, state: ", sentMessages.StatusMessages)
 			}
 			//Should delete peer from NotRecFromPeer
 		case peerlist = <-peerUpdate:
 			if peerlist.Lost != "" {
-				fmt.Println("Før peerupdate: ", sentMessages.NotRecFromPeer) //remove
+				//fmt.Println("Før peerupdate: ", sentMessages.NotRecFromPeer) //remove
 				for seqNo, peers := range sentMessages.NotRecFromPeer {
 					ind := stringInSlice(peerlist.Lost, peers)
 					if ind != -1 {
 						sentMessages.NotRecFromPeer[seqNo] = removeFromSlice(sentMessages.NotRecFromPeer[seqNo], ind)
 					}
 				}
-				fmt.Println("etter: ", sentMessages.NotRecFromPeer) //remove
+				//fmt.Println("etter: ", sentMessages.NotRecFromPeer) //remove
 			}
 		}
 	}
@@ -179,19 +179,21 @@ func SendUpdate(update status.UpdateMsg) {
 	updateMessageToSend.Message = update
 	updateMessageToSend.SeqNo = seqNo
 	TXupdate <- updateMessageToSend
-	sentMessages.UpdateMessages[seqNo] = update
-	sentMessages.NumberOfTimesSent[seqNo] = 1
-	sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
+	if len(peerlist.Peers) != 0 {
+		sentMessages.UpdateMessages[seqNo] = update
+		sentMessages.NumberOfTimesSent[seqNo] = 1
+		sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
 
-	newAckStruct := AckStruct{
-		AckMessage: AckMsg{
-			Id:      ID,
-			SeqNo:   seqNo,
-			MsgType: 0,
-		},
-		AckTimer: time.NewTimer(15 * time.Millisecond),
+		newAckStruct := AckStruct{
+			AckMessage: AckMsg{
+				Id:      ID,
+				SeqNo:   seqNo,
+				MsgType: 0,
+			},
+			AckTimer: time.NewTimer(15 * time.Millisecond),
+		}
+		go ackTimer(TimeoutAckChan, newAckStruct)
 	}
-	go ackTimer(TimeoutAckChan, newAckStruct)
 }
 
 func SendStatus(statusUpdate status.StatusStruct) {
@@ -199,19 +201,21 @@ func SendStatus(statusUpdate status.StatusStruct) {
 	statusMessageToSend.Message = statusUpdate
 	statusMessageToSend.SeqNo = seqNo
 	TXstate <- statusMessageToSend
-	sentMessages.StatusMessages[seqNo] = statusMessageToSend.Message
-	sentMessages.NumberOfTimesSent[seqNo] = 1
-	sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
+	if len(peerlist.Peers) != 0 {
+		sentMessages.StatusMessages[seqNo] = statusMessageToSend.Message
+		sentMessages.NumberOfTimesSent[seqNo] = 1
+		sentMessages.NotRecFromPeer[seqNo] = peerlist.Peers
 
-	newAckStruct := AckStruct{
-		AckMessage: AckMsg{
-			Id:      ID,
-			SeqNo:   seqNo,
-			MsgType: 1,
-		},
-		AckTimer: time.NewTimer(15 * time.Millisecond),
+		newAckStruct := AckStruct{
+			AckMessage: AckMsg{
+				Id:      ID,
+				SeqNo:   seqNo,
+				MsgType: 1,
+			},
+			AckTimer: time.NewTimer(15 * time.Millisecond),
+		}
+		go ackTimer(TimeoutAckChan, newAckStruct)
 	}
-	go ackTimer(TimeoutAckChan, newAckStruct)
 }
 
 func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
