@@ -9,6 +9,9 @@ import (
 	"../peers"
 )
 
+//TODO: fix den første meldinga som sendes
+//TODO: Fix maps
+
 /*---------------------Ack message struct---------------------
 Id: ID of the Elevator
 SeqNo: Sequence number of the UDP packet
@@ -24,9 +27,9 @@ type AckMsg struct {
 
 type SentMessages struct {
 	UpdateMessages    map[int]status.UpdateMsg
-	StatusMessages    map[int]status.StatusStruct
-	NumberOfTimesSent map[int]int      //Number of times sent for each sequence no
-	NotRecFromPeer    map[int][]string //Acks not received from active peers per seq. no.
+	StatusMessages    map[int]status.StatusStruct //TODO: Agree on issue with pointer?
+	NumberOfTimesSent map[int]int                 //Number of times sent for each sequence no
+	NotRecFromPeer    map[int][]string            //Acks not received from active peers per seq. no.
 }
 
 type AckStruct struct {
@@ -132,8 +135,9 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			}
 		case recAck := <-AckRecChan:
-			fmt.Println("Før ackreceived: ", sentMessages.NotRecFromPeer)
-			fmt.Println("før: ", sentMessages.StatusMessages)
+			fmt.Println("før ackreceived: ", sentMessages.NotRecFromPeer)
+			fmt.Println("før, updates: ", sentMessages.UpdateMessages)
+			fmt.Println("før, state: ", sentMessages.StatusMessages)
 			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the seqno has been deleted unexpectedly
 			if ok {
 				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
@@ -151,7 +155,8 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 					}
 				}
 				fmt.Println("etter ackreceived: ", sentMessages.NotRecFromPeer)
-				fmt.Println("etter: ", sentMessages.StatusMessages)
+				fmt.Println("etter, updates: ", sentMessages.UpdateMessages)
+				fmt.Println("etter, state: ", sentMessages.StatusMessages)
 			}
 			//Should delete peer from NotRecFromPeer
 		case peerlist = <-peerUpdate:

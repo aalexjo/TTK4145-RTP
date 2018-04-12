@@ -46,8 +46,8 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				//acknowledge.SendUpdate(update)
 				StatusUpdate <- update
 			}
-			if peerlist.New != "" {
-				acknowledge.SendStatus(<-StatusBroadcast)
+			if peerlist.New != "" { //TODO: Uncomment this?
+				//acknowledge.SendStatus(<-StatusBroadcast)
 				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
