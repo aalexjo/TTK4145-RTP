@@ -60,8 +60,6 @@ var AckSendChan = make(chan AckMsg)
 var AckRecChan = make(chan AckMsg)
 var TimeoutAckChan = make(chan AckMsg)
 
-//TODO: Differentiate on elevator id
-
 func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
 	sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
 	sentMessages.StatusMessages = make(map[int]status.StatusStruct)
@@ -134,6 +132,8 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			}
 		case recAck := <-AckRecChan:
+			fmt.Println("Før ackreceived: ", sentMessages.NotRecFromPeer)
+			fmt.Println("før: ", sentMessages.StatusMessages)
 			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the seqno has been deleted unexpectedly
 			if ok {
 				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
@@ -150,16 +150,20 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 						}
 					}
 				}
+				fmt.Println("etter ackreceived: ", sentMessages.NotRecFromPeer)
+				fmt.Println("etter: ", sentMessages.StatusMessages)
 			}
 			//Should delete peer from NotRecFromPeer
 		case peerlist = <-peerUpdate:
 			if peerlist.Lost != "" {
+				fmt.Println("Før peerupdate: ", sentMessages.NotRecFromPeer) //remove
 				for seqNo, peers := range sentMessages.NotRecFromPeer {
 					ind := stringInSlice(peerlist.Lost, peers)
 					if ind != -1 {
 						sentMessages.NotRecFromPeer[seqNo] = removeFromSlice(sentMessages.NotRecFromPeer[seqNo], ind)
 					}
 				}
+				fmt.Println("etter: ", sentMessages.NotRecFromPeer) //remove
 			}
 		}
 	}
