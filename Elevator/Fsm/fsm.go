@@ -97,7 +97,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			switch elev_state.States[elevID].Behaviour {
 			case "doorOpen":
 				if shouldStop(elev_state, elevID, elev_state.States[elevID].Floor) {
-					clearAtCurrentFloor(elev_state, elevID, elev_state.States[elevID].Floor, NetworkUpdate)
+					if clearAtCurrentFloor(elev_state, elevID, elev_state.States[elevID].Floor, NetworkUpdate) {
+						door_timed_out.Reset(3 * time.Second)
+					}
 					setAllLights(elev_state, elevID)
 				}
 			case "idle":
@@ -384,8 +386,9 @@ func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor i
 }
 
 //Clear order only if elevator is travelling in the right direction.
-func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string, floor int, NetworkUpdate chan<- status.UpdateMsg) {
+func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string, floor int, NetworkUpdate chan<- status.UpdateMsg) bool {
 	//For cabRequests
+	cleared := false
 	update := status.UpdateMsg{
 		MsgType:     4,
 		Floor:       floor,
@@ -398,6 +401,7 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 
 	if elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
 		NetworkUpdate <- update
+		cleared = true
 	}
 	//For hallRequests
 	update.MsgType = 0
@@ -407,31 +411,35 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
+			cleared = true
 		}
 		if !requestsAbove(elev_state, elevID, floor) && elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
+			cleared = true
 		}
 
 	case "down": //elevio.MD_Down:
 		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
+			cleared = true
 		}
 
 		if !requestsBelow(elev_state, elevID, floor) && elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
+			cleared = true
 		}
 
 	case "stop": //elevio.MD_Stop:
-		fallthrough
-	default:
 		update.Button = int(elevio.BT_HallDown)
 		NetworkUpdate <- update
 		update.Button = int(elevio.BT_HallUp)
 		NetworkUpdate <- update
+		cleared = true
 	}
+	return cleared
 }
 
 func setAllLights(elev_state cost.AssignedOrderInformation, elevID string) {
