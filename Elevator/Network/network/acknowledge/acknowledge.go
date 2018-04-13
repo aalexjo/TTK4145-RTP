@@ -2,6 +2,8 @@ package acknowledge
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"../../../Status"
@@ -48,6 +50,7 @@ type StatusMessageStruct struct {
 }
 
 var ID string
+var PORT string
 var seqNo = 0
 var updateMessageToSend UpdateMessageStruct
 var statusMessageToSend StatusMessageStruct
@@ -64,6 +67,16 @@ var AckRecChan = make(chan AckMsg)
 var TimeoutAckChan = make(chan AckMsg)
 
 func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r, " ACK fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+PORT, " -id="+ID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+PORT+" -id="+ID).Run()
+			if err != nil {
+				fmt.Println("Unable to reboot process, crashing...")
+			}
+		}
+		os.Exit(0)
+	}()
 	sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
 	sentMessages.StatusMessages = make(map[int]status.StatusStruct)
 	sentMessages.NumberOfTimesSent = make(map[int]int)

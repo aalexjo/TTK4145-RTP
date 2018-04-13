@@ -246,7 +246,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 		case <-in_floor_cont:
 			motor_timed_out.Reset(4 * time.Second)
 
-		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 3 seconds
+		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 4 seconds
 			//all other operation is interrupted (this needs not be the case)
 			currInfo := <-FSMinfo
 			updateMessage.MsgType = 1
