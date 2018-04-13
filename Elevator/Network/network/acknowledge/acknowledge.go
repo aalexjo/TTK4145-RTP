@@ -97,7 +97,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				MsgType: 0,
 			}
 			AckSendChan <- ackMessage
-			newUpdate <- update.Message
+			if update.Message.Elevator != ID {
+				newUpdate <- update.Message
+			}
+
 		case status := <-RXstate:
 			ackMessage := AckMsg{
 				Id:      ID,

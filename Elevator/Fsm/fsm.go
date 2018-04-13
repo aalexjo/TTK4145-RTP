@@ -62,6 +62,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 		elevio.SetMotorDirection(elevio.MD_Down)
 		elevio.SetFloorIndicator(0)
 		elevio.SetDoorOpenLamp(false)
+		turnOffAllLights()
 		updateMessage.Floor = 0
 		updateMessage.Behaviour = "idle"
 		updateMessage.Direction = "up"
@@ -203,8 +204,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				updateMessage.Elevator = elevID
 				NetworkUpdate <- updateMessage
 
-				//clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
 				setAllLights(elev_state, elevID)
+			} else {
+				motor_timed_out.Reset(4 * time.Second)
 			}
 
 		case <-door_timed_out.C:
@@ -249,12 +251,13 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				NetworkUpdate <- updateMessage
 
 			}
-		case <-in_floor_cont:
-			motor_timed_out.Reset(4 * time.Second)
+		//case <-in_floor_cont:
+		//motor_timed_out.Reset(4 * time.Second)
 
 		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 4 seconds
 			//all other operation is interrupted (this needs not be the case)
-			//currInfo := <-FSMinfo
+			currInfo := <-FSMinfo
+			lastFloor := currInfo.States[elevID].Floor
 			updateMessage.MsgType = 8
 			updateMessage.Elevator = elevID
 			//updateMessage.Direction = "stop"
@@ -262,47 +265,57 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			NetworkUpdate <- updateMessage
 			motor_timed_out.Reset(4 * time.Second)
 			motor_timed_out.Stop()
+			turnOffAllLights()
 
-			//stop_blink_timer := time.NewTimer(1 * time.Second)
-			//toggle := false
-			//TODO: Set lights as they should?
-			// lastFloor := currInfo.States[elevID].Floor
-			// lastDir := currInfo.States[elevID].Direction
+		F:
+			for {
+				select {
+				case floor := <-in_floor_cont:
+					if floor != lastFloor {
+						break F
+					}
+				}
+			}
+			/*
+				//stop_blink_timer := time.NewTimer(1 * time.Second)
+				//toggle := false
+				//
+				// lastDir := currInfo.States[elevID].Direction
 
-			// F:
-			// 	for { //this block can simply be removed if it is desired that the elevator should still transmit orders while out of order
-			// 		select {
-			// 		case floor := <-in_floor_cont:
-			// 			if floor != lastFloor {
-			// 				fmt.Println("breakpls")
-			// 				updateMessage.MsgType = 2
-			// 				updateMessage.Elevator = elevID
-			// 				updateMessage.Floor = floor
-			// 				updateMessage.Direction = lastDir
-			// 				NetworkUpdate <- updateMessage
-			// 				break F
-			// 			}
-			// 			if lastDir == "up" {
-			// 				elevio.SetMotorDirection(elevio.MD_Up)
-			// 				motor_timed_out.Reset(4 * time.Second)
-			// 			} else {
-			// 				elevio.SetMotorDirection(elevio.MD_Down)
-			// 				motor_timed_out.Reset(4 * time.Second)
-			// 			}
-			// 			// case <-stop_blink_timer.C:
-			// 			// 	toggle = !toggle
-			// 			// 	elevio.SetStopLamp(toggle)
-			// 			// 	stop_blink_timer.Reset(1 * time.Second)
-			// 			// 	if lastDir == "up" {
-			// 			// 		elevio.SetMotorDirection(elevio.MD_Up)
-			// 			// 		motor_timed_out.Reset(4 * time.Second)
-			// 			// 	} else {
-			// 			// 		elevio.SetMotorDirection(elevio.MD_Down)
-			// 			// 		motor_timed_out.Reset(4 * time.Second)
-			// 			// 	}
-			// 		}
-			// 	}
-			// 	elevio.SetStopLamp(false)
+				// F:
+				// 	for { //this block can simply be removed if it is desired that the elevator should still transmit orders while out of order
+				// 		select {
+				// 		case floor := <-in_floor_cont:
+				// 			if floor != lastFloor {
+				// 				fmt.Println("breakpls")
+				// 				updateMessage.MsgType = 2
+				// 				updateMessage.Elevator = elevID
+				// 				updateMessage.Floor = floor
+				// 				updateMessage.Direction = lastDir
+				// 				NetworkUpdate <- updateMessage
+				// 				break F
+				// 			}
+				// 			if lastDir == "up" {
+				// 				elevio.SetMotorDirection(elevio.MD_Up)
+				// 				motor_timed_out.Reset(4 * time.Second)
+				// 			} else {
+				// 				elevio.SetMotorDirection(elevio.MD_Down)
+				// 				motor_timed_out.Reset(4 * time.Second)
+				// 			}
+				// 			// case <-stop_blink_timer.C:
+				// 			// 	toggle = !toggle
+				// 			// 	elevio.SetStopLamp(toggle)
+				// 			// 	stop_blink_timer.Reset(1 * time.Second)
+				// 			// 	if lastDir == "up" {
+				// 			// 		elevio.SetMotorDirection(elevio.MD_Up)
+				// 			// 		motor_timed_out.Reset(4 * time.Second)
+				// 			// 	} else {
+				// 			// 		elevio.SetMotorDirection(elevio.MD_Down)
+				// 			// 		motor_timed_out.Reset(4 * time.Second)
+				// 			// 	}
+				// 		}
+				// 	}
+				// 	elevio.SetStopLamp(false)*/
 			fmt.Println(<-FSMinfo)
 		}
 	}
@@ -403,6 +416,7 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 		NetworkUpdate <- update
 		cleared = true
 	}
+
 	//For hallRequests
 	update.MsgType = 0
 	switch elev_state.States[elevID].Direction { //chooseDirection(elev_state, elevID, floor) {
@@ -440,6 +454,7 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 		cleared = true
 	}
 	return cleared
+
 }
 
 func setAllLights(elev_state cost.AssignedOrderInformation, elevID string) {
@@ -447,6 +462,15 @@ func setAllLights(elev_state cost.AssignedOrderInformation, elevID string) {
 		elevio.SetButtonLamp(elevio.BT_Cab, floor, elev_state.States[elevID].CabRequests[floor])
 		for button := elevio.BT_HallUp; button < elevio.BT_Cab; button++ {
 			elevio.SetButtonLamp(button, floor, elev_state.HallRequests[floor][button])
+		}
+	}
+}
+
+func turnOffAllLights() {
+	for floor := 0; floor < FLOORS; floor++ {
+		elevio.SetButtonLamp(elevio.BT_Cab, floor, false)
+		for button := elevio.BT_HallUp; button < elevio.BT_Cab; button++ {
+			elevio.SetButtonLamp(button, floor, false)
 		}
 	}
 }

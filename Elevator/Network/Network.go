@@ -25,6 +25,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
+	peerTxEnableVar := true
 	go peers.Transmitter(16016, id, peerTxEnable)
 	go peers.Receiver(16016, peerUpdateCh)
 
@@ -32,12 +33,14 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	for {
 		select {
 		case peerlist = <-peerUpdateCh:
+
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", peerlist.Peers)
 			fmt.Printf("  New:      %q\n", peerlist.New)
 			fmt.Printf("  Lost:     %q\n", peerlist.Lost)
-
+			fmt.Println("before")
 			ackPeerUpdate <- peerlist
+			fmt.Println("after")
 			if peerlist.Lost != "" {
 				update := status.UpdateMsg{
 					MsgType:  5,
@@ -52,14 +55,16 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			}
 		case update := <-NetworkUpdate:
 			if update.MsgType == 8 { //update.Direction == "stop" && update.MsgType == 3 {
-				fmt.Println("disable TX")
-				peerTxEnable <- false
-			} else {
+				peerTxEnableVar = false
+				peerTxEnable <- peerTxEnableVar
+				continue
+			} else if peerTxEnableVar == false && update.MsgType == 2 {
 				peerTxEnable <- true
 			}
+			println("update type:", update.MsgType)
 			acknowledge.SendUpdate(update)
-			StatusUpdate <- update
 
+			StatusUpdate <- update
 		case update := <-newUpdate:
 			if update.Elevator != id {
 				StatusUpdate <- update
