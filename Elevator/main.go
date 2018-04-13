@@ -22,7 +22,7 @@ import (
 )
 
 //Change according to number of elevators. Could also be passed from command line.
-const FLOORS = 8
+const FLOORS = 4
 const ELEVATORS = 3
 
 func main() {
