@@ -1,5 +1,9 @@
 package network
 
+/* The Network module is the top layer for communication between internal modules of one elevator and communication with other peers on the network.
+The Network module receives information from the Fsm module and sends its received information to the status module. It can also enable or disable itself
+if it receives a message from the Fsm that the motor is broken.
+*/
 import (
 	"fmt"
 
@@ -18,6 +22,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	newStatus := make(chan status.StatusStruct)
 	ackPeerUpdate := make(chan peers.PeerUpdate)
 	acknowledge.ID = id
+
 	go acknowledge.Ack(newUpdate, newStatus, ackPeerUpdate)
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
@@ -28,7 +33,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	go peers.Transmitter(16016, id, peerTxEnable)
 	go peers.Receiver(16016, peerUpdateCh)
 
-	fmt.Println("Started network")
 	for {
 		select {
 		case peerlist = <-peerUpdateCh:
@@ -43,7 +47,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 					MsgType:  5,
 					Elevator: peerlist.Lost,
 				}
-				//acknowledge.SendUpdate(update)
 				StatusUpdate <- update
 			}
 			if peerlist.New != "" {
@@ -51,7 +54,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
-			if update.MsgType == 8 { //update.Direction == "stop" && update.MsgType == 3 {
+			if update.MsgType == 8 {
 				fmt.Println("disable TX")
 				peerTxEnable <- false
 			} else {
@@ -59,12 +62,10 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			}
 			acknowledge.SendUpdate(update)
 			StatusUpdate <- update
-
 		case update := <-newUpdate:
 			if update.Elevator != id {
 				StatusUpdate <- update
 			}
-
 		case status := <-newStatus:
 			StatusRefresh <- status
 		}

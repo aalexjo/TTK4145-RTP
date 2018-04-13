@@ -1,15 +1,12 @@
 package fsm
 
-/*
-This package implements the basic operation of the elevator and builds on the elevator driver.
-The module does not retain any information (other than the name) about the state of the elevator,
-but expects the information recived from the cost module through the channel FSMinfo to be current.
-This information includes the elevators current state and the orders that have been assigned to it,
-all logic that is needed to execute these orders is contained within this module.
-
-All updates that occur to the elevator are transmitted to the network module and are further processed there.
-The different updatemessage types are described in the Status module.
-*/
+//This package implements the basic operation of the elevator and builds on the elevator driver.
+//The module does not retain any information (other than the name) about the state of the elevator,
+//but expects the information recived from the cost module through the channel FSMinfo to be current.
+//This information includes the elevators current state and the orders that have been assigned to it,
+//all logic that is needed to execute these orders is contained within this module.
+//All updates that occur to the elevator are transmitted to the network module and are further processed there.
+//The different updatemessage types are described in the Status module.
 import (
 	"fmt"
 	"os"
@@ -24,14 +21,14 @@ import (
 var FLOORS int
 
 //TODO: test motor failure. worries: behaviour=stop is not enough and elevator must disconnect from network
-//TODO: if a button is pressed while door is open in the same floor, simply clear order and refresh door timer
+//TODO: @aalexjo clean up the motor failure part, not sure what needs to stay or not :)
 
 func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string, port string) {
 	//Handling unexpected panic errors. Spawns a new process and initializing from a saved state.
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run()
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run() //TODO: Change gnome-terminal to sh
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
@@ -40,8 +37,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	}()
 
 	var updateMessage status.UpdateMsg
-	updateMessage.Elevator = elevID
 	var elev_state cost.AssignedOrderInformation
+
+	updateMessage.Elevator = elevID
 	elev_state = <-FSMinfo
 	in_buttons := make(chan elevio.ButtonEvent)
 	in_floors := make(chan int)
@@ -55,10 +53,8 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	go elevio.PollButtons(in_buttons)
 	go elevio.PollFloorSensor(in_floors)
 	go elevio.PollFloorSensorCont(in_floor_cont)
-	fmt.Println("Fsm kjører nå.")
 
 	if init {
-		fmt.Println("init")
 		elevio.SetMotorDirection(elevio.MD_Down)
 		elevio.SetFloorIndicator(0)
 		elevio.SetDoorOpenLamp(false)
@@ -88,10 +84,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			}
 		}
 	}
-
+	//Main loop in Fsm
 	for {
 		select {
-
 		case elev_state = <-FSMinfo: //New states from cost function
 			setAllLights(elev_state, elevID)
 			switch elev_state.States[elevID].Behaviour {
@@ -106,7 +101,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				newDirection := chooseDirection(elev_state, elevID, elev_state.States[elevID].Floor)
 				switch newDirection {
 				case elevio.MD_Stop:
-					if elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][0] || elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][1] || elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
+					if elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][0] ||
+						elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][1] ||
+						elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
 						elevio.SetDoorOpenLamp(true)
 						door_timed_out.Reset(3 * time.Second)
 
@@ -119,10 +116,10 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 						clearAtCurrentFloor(elev_state, elevID, elev_state.States[elevID].Floor, NetworkUpdate)
 						setAllLights(elev_state, elevID)
 					}
-
 				case elevio.MD_Up:
 					elevio.SetMotorDirection(newDirection)
 					motor_timed_out.Reset(4 * time.Second)
+
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "up"
@@ -134,10 +131,10 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 					updateMessage.Behaviour = "moving"
 					updateMessage.Elevator = elevID
 					NetworkUpdate <- updateMessage
-
 				case elevio.MD_Down:
 					elevio.SetMotorDirection(newDirection)
 					motor_timed_out.Reset(4 * time.Second)
+
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "down"
@@ -149,12 +146,9 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 					updateMessage.Behaviour = "moving"
 					updateMessage.Elevator = elevID
 					NetworkUpdate <- updateMessage
-
 				}
 			case "moving":
-
 			}
-
 		case buttonEvent := <-in_buttons:
 			/*------------Making update message ------------*/
 			if buttonEvent.Button < 2 { // If hall request
@@ -173,11 +167,6 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 				updateMessage.Elevator = elevID
 			}
 			NetworkUpdate <- updateMessage
-
-			/*-------------Handling Elevator stuff---------------*/
-			//TODO:Eventuelt STOPP-knapp behandling eller noe?
-			//TODO:Eventuelt hvis vi skal akseptere cabRequests umiddelbart??
-
 		case floor := <-in_floors:
 			/*--------------Message to send--------------------*/
 			updateMessage.MsgType = 2 //Arrived at floor
@@ -185,15 +174,12 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			updateMessage.Behaviour = elev_state.States[elevID].Behaviour
 			updateMessage.Elevator = elevID
 			NetworkUpdate <- updateMessage
+
 			motor_timed_out.Stop()
-
-			fmt.Println("Reached floor: ", floor)
 			elevio.SetFloorIndicator(floor)
-
 			if shouldStop(elev_state, elevID, floor) {
 				elevio.SetMotorDirection(elevio.MD_Stop)
 				clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
-
 				elevio.SetDoorOpenLamp(true)
 				door_timed_out.Reset(3 * time.Second)
 
@@ -303,12 +289,11 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 			// 		}
 			// 	}
 			// 	elevio.SetStopLamp(false)
-			fmt.Println(<-FSMinfo)
 		}
 	}
-	fmt.Println("went too far FSM ended")
 }
 
+//Checks for any orders above current floor
 func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
 	for floor := reachedFloor + 1; floor < FLOORS; floor++ {
 		if elev_state.States[elevID].CabRequests[floor] {
@@ -323,6 +308,7 @@ func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reac
 	return false
 }
 
+//Checks any orders below current floor
 func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
 	for floor := 0; floor < reachedFloor; floor++ {
 		if elev_state.States[elevID].CabRequests[floor] {
@@ -350,7 +336,6 @@ func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string, fl
 		} else {
 			return elevio.MD_Stop
 		}
-
 	case "up":
 		if requestsAbove(elev_state, elevID, floor) {
 			return elevio.MD_Up
@@ -359,7 +344,6 @@ func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string, fl
 		} else {
 			return elevio.MD_Stop
 		}
-
 	default:
 		return elevio.MD_Stop
 	}
@@ -373,7 +357,6 @@ func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor i
 		return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallDown] ||
 			elev_state.States[elevID].CabRequests[floor] ||
 			!requestsBelow(elev_state, elevID, floor))
-
 	case "up":
 		return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallUp] ||
 			elev_state.States[elevID].CabRequests[floor] ||
@@ -385,7 +368,7 @@ func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor i
 	}
 }
 
-//Clear order only if elevator is travelling in the right direction.
+//Clear order only if elevator is travelling in the right direction. Returns true if an order has been cleared.
 func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string, floor int, NetworkUpdate chan<- status.UpdateMsg) bool {
 	//For cabRequests
 	cleared := false
@@ -398,41 +381,38 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 		ServedOrder: true,
 		Elevator:    elevID,
 	}
-
 	if elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
 		NetworkUpdate <- update
 		cleared = true
 	}
 	//For hallRequests
 	update.MsgType = 0
-	switch elev_state.States[elevID].Direction { //chooseDirection(elev_state, elevID, floor) {
-
-	case "up": // elevio.MD_Up:
+	switch elev_state.States[elevID].Direction {
+	case "up":
 		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
 			cleared = true
 		}
-		if !requestsAbove(elev_state, elevID, floor) && elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
+		if !requestsAbove(elev_state, elevID, floor) &&
+			elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
 			cleared = true
 		}
-
-	case "down": //elevio.MD_Down:
+	case "down":
 		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
 			cleared = true
 		}
-
-		if !requestsBelow(elev_state, elevID, floor) && elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
+		if !requestsBelow(elev_state, elevID, floor) &&
+			elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
 			cleared = true
 		}
-
-	case "stop": //elevio.MD_Stop:
+	case "stop":
 		update.Button = int(elevio.BT_HallDown)
 		NetworkUpdate <- update
 		update.Button = int(elevio.BT_HallUp)
@@ -442,6 +422,7 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 	return cleared
 }
 
+//Updates all lights based on all orders from Cost module
 func setAllLights(elev_state cost.AssignedOrderInformation, elevID string) {
 	for floor := 0; floor < FLOORS; floor++ {
 		elevio.SetButtonLamp(elevio.BT_Cab, floor, elev_state.States[elevID].CabRequests[floor])

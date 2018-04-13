@@ -1,8 +1,9 @@
 package main
 
-/*This is the entry point for the elevator project in TTK4145 Real time programming, made by Alexander Johansen and Bendik Standal.
+/*This is the entry point for the elevator project in TTK4145 Real time programming.
 The project consists of five modules tied together in this main package. The modules communicate through go channels according to the design
-diagram found in the Design section of the project on github. The modules are: Cost, Fsm, Status, Network and Driver. Their communication and
+diagram found in the Design section of the project on github. https://github.com/TTK4145/project-merge-issues
+The modules are: Cost, Fsm, Status, Network and Driver. Their communication and
 further function description can be found in the README file.*/
 import (
 	"flag"
