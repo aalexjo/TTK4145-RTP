@@ -7,6 +7,9 @@ or the message is sent 10 times, it is deleted from the struct. This module comm
 in addition to the Network module.
 */
 import (
+	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"../../../Status"
@@ -52,6 +55,7 @@ type StatusMessageStruct struct {
 }
 
 var ID string
+var PORT string
 var seqNo = 0
 var updateMessageToSend UpdateMessageStruct
 var statusMessageToSend StatusMessageStruct
@@ -69,6 +73,16 @@ var TimeoutAckChan = make(chan AckMsg)
 
 //Main ack-goroutine. Communicates with enclosing Network module and other peers on the network through the bcast submodule.
 func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r, " ACK fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+PORT, " -id="+ID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+PORT+" -id="+ID).Run()
+			if err != nil {
+				fmt.Println("Unable to reboot process, crashing...")
+			}
+		}
+		os.Exit(0)
+	}()
 	sentMessages.UpdateMessages = make(map[int]status.UpdateMsg)
 	sentMessages.StatusMessages = make(map[int]status.StatusStruct)
 	sentMessages.NumberOfTimesSent = make(map[int]int)
@@ -89,7 +103,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				MsgType: 0,
 			}
 			AckSendChan <- ackMessage
-			newUpdate <- update.Message
+			if update.Message.Elevator != ID {
+				newUpdate <- update.Message
+			}
+
 		case status := <-RXstate:
 			ackMessage := AckMsg{
 				Id:      ID,

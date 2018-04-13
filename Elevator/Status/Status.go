@@ -14,7 +14,7 @@ JSON format for saving the status
 {
     "hallRequests" :
         [[Boolean, Boolean], ...],
-    "States" :
+    "states" :
         {
             "id_1" : {
                 "behaviour"     : < "idle" | "moving" | "doorOpen" >
@@ -27,8 +27,6 @@ JSON format for saving the status
 }
 */
 
-//TODO: Fix button presses under INIT???
-
 type UpdateMsg struct {
 	//encoding of relevant update information
 	//copy from network module
@@ -39,6 +37,7 @@ type UpdateMsg struct {
 	// 3 = newDirection
 	// 4 = cabRequest
 	// 5 = deleteElev
+	// 8 = brokenMotor
 	Elevator    string //used in all other than 0
 	Floor       int    //used in 0, 2, 4
 	Button      int    //used in 0, 4
@@ -124,6 +123,8 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 					delete(status.States, message.Elevator)
 					fmt.Println("deleting", message.Elevator)
 				}
+			default:
+				continue
 			}
 			//file.Seek(0, 0)
 			file, err = os.Create("status.txt")
@@ -158,7 +159,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 			}
 
 		case ElevStatus <- *status:
-		case StatusBroadcast <- *status: //TODO: check that this will always send the most recent status
+		case StatusBroadcast <- *status:
 		}
 	}
 }

@@ -10,6 +10,8 @@ This is a repository containing the real time programming project in TTK4145.
 4. watchdog
   * implement wachdog module that tracks all other modules, is able to terminate them if they crash or hang and spawn replacemnets
 
+5. Move everything over to the organization repo when finished 
+
 after
  -Clean up code and comments
  -add function comments

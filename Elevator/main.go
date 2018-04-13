@@ -18,7 +18,9 @@ import (
 	"./Driver/Elevio"
 	"./Fsm"
 	"./Network"
+	"./Network/network/acknowledge"
 	"./Network/network/localip"
+
 	"./Status"
 )
 
@@ -62,7 +64,7 @@ func main() {
 		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
 	}
 
-	AssignGlobals()
+	AssignGlobals(id, port)
 
 	StatusUpdate := make(chan status.UpdateMsg) //sends updates that occured in the network to the status module
 	NetworkUpdate := make(chan status.UpdateMsg)
@@ -93,8 +95,10 @@ func atExit() {
 	os.Exit(0)
 }
 
-func AssignGlobals() {
+func AssignGlobals(id string, port string) {
 	status.FLOORS = FLOORS
 	status.ELEVATORS = ELEVATORS
 	fsm.FLOORS = FLOORS
+	acknowledge.ID = id
+	acknowledge.PORT = port
 }
