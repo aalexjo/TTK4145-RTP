@@ -1,5 +1,6 @@
 package elevio
 
+//Package made by TTK4145, slightly modified. Contains all funtions necessary to drive elevator input and output.
 import "time"
 import "sync"
 import "net"
@@ -108,7 +109,7 @@ func PollFloorSensor(receiver chan<- int) {
 
 func PollFloorSensorCont(receiver chan<- int) {
 	for {
-		time.Sleep(100*time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		v := getFloor()
 		if v != -1 {
 			receiver <- v

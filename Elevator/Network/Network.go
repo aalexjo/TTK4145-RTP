@@ -1,5 +1,9 @@
 package network
 
+/* The Network module is the top layer for communication between internal modules of one elevator and communication with other peers on the network.
+The Network module receives information from the Fsm module and sends its received information to the status module. It can also enable or disable itself
+if it receives a message from the Fsm that the motor is broken.
+*/
 import (
 	"fmt"
 
@@ -29,7 +33,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 	go peers.Transmitter(16016, id, peerTxEnable)
 	go peers.Receiver(16016, peerUpdateCh)
 
-	fmt.Println("Started network")
 	for {
 		select {
 		case peerlist = <-peerUpdateCh:
@@ -44,7 +47,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 					MsgType:  5,
 					Elevator: peerlist.Lost,
 				}
-				//acknowledge.SendUpdate(update)
 				StatusUpdate <- update
 			}
 			if peerlist.New != "" {
@@ -66,7 +68,6 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			if update.Elevator != id {
 				StatusUpdate <- update
 			}
-
 		case status := <-newStatus:
 			StatusRefresh <- status
 		}

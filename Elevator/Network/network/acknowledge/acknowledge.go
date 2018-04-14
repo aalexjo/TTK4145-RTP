@@ -1,5 +1,11 @@
 package acknowledge
 
+/*This module aims to maximize the chances for any message sent over the network to be received of all peers.
+The mid layer for the communication of updatemessages and statusmessages. Every message is stored in a struct,
+and then resent up to 10 times if there are peers no ack has been received from. When all acks have been received
+or the message is sent 10 times, it is deleted from the struct. This module communicates with the other peers on the network
+in addition to the Network module.
+*/
 import (
 	"fmt"
 	"os"
@@ -11,7 +17,6 @@ import (
 	"../peers"
 )
 
-//TODO: fix den første meldinga som sendes
 //TODO: Fix maps
 
 /*---------------------Ack message struct---------------------
@@ -29,14 +34,14 @@ type AckMsg struct {
 
 type SentMessages struct {
 	UpdateMessages    map[int]status.UpdateMsg
-	StatusMessages    map[int]status.StatusStruct //TODO: Agree on issue with pointer?
-	NumberOfTimesSent map[int]int                 //Number of times sent for each sequence no
-	NotRecFromPeer    map[int][]string            //Acks not received from active peers per seq. no.
+	StatusMessages    map[int]status.StatusStruct
+	NumberOfTimesSent map[int]int
+	NotRecFromPeer    map[int][]string //Acks not received from active peers per seq. no.
 }
 
 type AckStruct struct {
 	AckMessage AckMsg
-	AckTimer   *time.Timer
+	AckTimer   *time.Timer //Attaching a timer to each ack message.
 }
 
 type UpdateMessageStruct struct {
@@ -66,6 +71,7 @@ var AckSendChan = make(chan AckMsg)
 var AckRecChan = make(chan AckMsg)
 var TimeoutAckChan = make(chan AckMsg)
 
+//Main ack-goroutine. Communicates with enclosing Network module and other peers on the network through the bcast submodule.
 func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -85,9 +91,9 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 	// Start the transmitter/receiver pair on some port
 	// These functions can take any number of channels! It is also possible to
 	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, TXupdate, TXstate, AckSendChan) //TODO: fix ports
+	go bcast.Transmitter(16569, TXupdate, TXstate, AckSendChan)
 	go bcast.Receiver(16569, RXupdate, RXstate, AckRecChan)
-
+	//Main loop in Ack-module
 	for {
 		select {
 		case update := <-RXupdate:
@@ -114,12 +120,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 			case 0: //UpdateMessages
 				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Resend if sent <10 times
-					fmt.Println("No ack - packet loss - resending...")
-
 					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 					updateMessageToSend.SeqNo = notReceivedAck.SeqNo
 					TXupdate <- updateMessageToSend
-					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
+					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] += 1
 					newAckStruct := AckStruct{
 						AckMessage: AckMsg{
 							Id:      notReceivedAck.Id,
@@ -133,12 +137,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 			case 1: //StatusMessages
 				_, ok := sentMessages.StatusMessages[notReceivedAck.SeqNo]
 				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) {
-					fmt.Println("No ack - packet loss - resending...")
-
 					statusMessageToSend.Message = sentMessages.StatusMessages[notReceivedAck.SeqNo]
 					statusMessageToSend.SeqNo = notReceivedAck.SeqNo
 					TXstate <- statusMessageToSend
-					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo]++
+					sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] += 1
 					newAckStruct := AckStruct{
 						AckMessage: AckMsg{
 							Id:      notReceivedAck.Id,
@@ -151,10 +153,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				}
 			}
 		case recAck := <-AckRecChan:
-			//fmt.Println("før ackreceived: ", sentMessages.NotRecFromPeer)
-			//fmt.Println("før, updates: ", sentMessages.UpdateMessages)
-			//fmt.Println("før, state: ", sentMessages.StatusMessages)
-			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the seqno has been deleted unexpectedly
+			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the SeqNo has been deleted unexpectedly
 			if ok {
 				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
 				if ind != -1 {
@@ -170,26 +169,22 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 						}
 					}
 				}
-				//fmt.Println("etter ackreceived: ", sentMessages.NotRecFromPeer)
-				//fmt.Println("etter, updates: ", sentMessages.UpdateMessages)
-				//fmt.Println("etter, state: ", sentMessages.StatusMessages)
 			}
-			//Should delete peer from NotRecFromPeer
+		//Delete lost peer from NotRecFromPeer
 		case peerlist = <-peerUpdate:
 			if peerlist.Lost != "" {
-				//fmt.Println("Før peerupdate: ", sentMessages.NotRecFromPeer) //remove
 				for seqNo, peers := range sentMessages.NotRecFromPeer {
 					ind := stringInSlice(peerlist.Lost, peers)
 					if ind != -1 {
 						sentMessages.NotRecFromPeer[seqNo] = removeFromSlice(sentMessages.NotRecFromPeer[seqNo], ind)
 					}
 				}
-				//fmt.Println("etter: ", sentMessages.NotRecFromPeer) //remove
 			}
 		}
 	}
 }
 
+//Function for sending update messages over the network. Adds the messages to the sentMessages struct. Spawns an ack-timer to wait for acks on the message.
 func SendUpdate(update status.UpdateMsg) {
 	seqNo += 1
 	updateMessageToSend.Message = update
@@ -212,6 +207,7 @@ func SendUpdate(update status.UpdateMsg) {
 	}
 }
 
+//Function for sending status messages over the network. Adds the messages to the sentMessages struct. Spawns an ack-timer to wait for acks on the message.
 func SendStatus(statusUpdate status.StatusStruct) {
 	seqNo += 1
 	statusMessageToSend.Message = statusUpdate
@@ -234,6 +230,7 @@ func SendStatus(statusUpdate status.StatusStruct) {
 	}
 }
 
+//Goroutine for waiting for ack messages. When the timer finishes, the ack-message is sent to the TimeoutAckChan.
 func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
 	for {
 		select {
@@ -242,19 +239,4 @@ func ackTimer(TimeoutAckChan chan<- AckMsg, ackStruct AckStruct) {
 			return
 		}
 	}
-}
-
-//Utilities for arrays in golang
-func stringInSlice(a string, list []string) int {
-	for ind, b := range list {
-		if b == a {
-			return ind
-		}
-	}
-	return -1
-}
-
-func removeFromSlice(s []string, i int) []string {
-	s[len(s)-1], s[i] = s[i], s[len(s)-1]
-	return s[:len(s)-1]
 }

@@ -1,5 +1,9 @@
 package cost
 
+/*The Cost module utilizes the hall_request_assigner made by @klasbo for TTK4145 to calculate cost for each elevator
+and then assigning all orders to the elevators accordingly. This module communicates with the Status and Fsm modules with which it respectively
+receives and transmits its information. The status from the Status module is converted to JSON-format and the executable hall_request_assigner is run.
+The result is then converted back and sent to the Fsm.*/
 import (
 	//"io"
 	"encoding/json"
@@ -22,18 +26,11 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 	for {
 		select {
 		case status := <-ElevStatus:
-			//fmt.Println("Status inn :", status)
-
 			arg, err := json.Marshal(status)
 			if err != nil {
 				fmt.Println("error:", err)
 			}
-			//fmt.Println("Marshaled: ", string(arg))
-
 			result, err := exec.Command("sh", "-c", "./hall_request_assigner --input '"+string(arg)+"'").Output()
-
-			//fmt.Println("Result fra command: ", string(result))
-
 			if err != nil {
 				fmt.Println("error:", err, "cost function")
 				fmt.Println("recived:", string(arg))
@@ -47,7 +44,6 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 				HallRequests:   status.HallRequests,
 				States:         status.States,
 			}
-			//fmt.Println("output fra cost: ", output)
 			FSMinfo <- output
 		}
 	}
