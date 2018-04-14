@@ -59,13 +59,11 @@ type StateValues struct {
 }
 
 func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct, StatusRefresh <-chan StatusStruct, StatusUpdate <-chan UpdateMsg, init bool, id string) {
-	// ------------Commented out block until file is used-------------------
+
 	file, err := os.OpenFile("status.txt", os.O_RDWR|os.O_CREATE, 0777)
 	check(err)
-	//reader := bufio.NewReader(file)
-	//writer := bufio.NewWriter(file)
-	//------------------------------------------------------------------------*/
-	status := new(StatusStruct)
+
+	status := new(StatusStruct) //main status struct, continually updated
 
 	if init { //clean initialization
 		file, err = os.Create("status.txt")
@@ -89,9 +87,8 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 	for {
 		select {
 		case message := <-StatusUpdate:
-			//fmt.Println(message)
 			if message.Elevator != "" {
-				if _, ok := status.States[message.Elevator]; !ok && message.MsgType != 5 { //Elevator is not i status struct, initialized with best guess
+				if _, ok := status.States[message.Elevator]; !ok && message.MsgType != 5 { //Elevator is not in status struct, initialized with best guess
 					initNewElevator(message.Elevator, status, message.Behaviour, message.Floor, message.Direction, make([]bool, FLOORS))
 				}
 			}
@@ -102,7 +99,6 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 				} else {
 					status.HallRequests[message.Floor][message.Button] = true
 				}
-				//fmt.Println(status)
 			case 1: //new Behaviour
 				status.States[message.Elevator].Behaviour = message.Behaviour
 
@@ -118,10 +114,9 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 				} else {
 					status.States[message.Elevator].CabRequests[message.Floor] = true
 				}
-			case 5:
-				if message.Elevator != id {
+			case 5: //lost Elevator
+				if message.Elevator != id { //dont delete ourselves
 					delete(status.States, message.Elevator)
-					fmt.Println("deleting", message.Elevator)
 				}
 			default:
 				continue
