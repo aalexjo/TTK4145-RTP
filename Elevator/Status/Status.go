@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 )
 
 var FLOORS int
 var ELEVATORS int
+var Mtx sync.Mutex = sync.Mutex{}
 
 /*
 JSON format for saving the status
@@ -64,7 +66,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 	check(err)
 
 	status := new(StatusStruct) //main status struct, continually updated
-
+	Mtx.Lock()
 	if init { //clean initialization
 		file, err = os.Create("status.txt")
 		check(err)
@@ -83,10 +85,11 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 		arg, _ := json.Marshal(status)
 		fmt.Println(string(arg))
 	}
-
+	Mtx.Unlock()
 	for {
 		select {
 		case message := <-StatusUpdate:
+			Mtx.Lock()
 			if message.Elevator != "" {
 				if _, ok := status.States[message.Elevator]; !ok && message.MsgType != 5 { //Elevator is not in status struct, initialized with best guess
 					initNewElevator(message.Elevator, status, message.Behaviour, message.Floor, message.Direction, make([]bool, FLOORS))
@@ -121,7 +124,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 			default:
 				continue
 			}
-			//file.Seek(0, 0)
+			Mtx.Unlock()
 			file, err = os.Create("status.txt")
 			check(err)
 			e := json.NewEncoder(file).Encode(status)
@@ -130,6 +133,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 
 		case inputState := <-StatusRefresh: //only add orders and update states
 			//refresh hall requests
+			Mtx.Lock()
 			for floor := 0; floor < FLOORS; floor++ {
 				for button := 0; button < 2; button++ {
 					if inputState.HallRequests[floor][button] {
@@ -152,6 +156,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 					}
 				}
 			}
+			Mtx.Unlock()
 
 		case ElevStatus <- *status:
 		case StatusBroadcast <- *status:
@@ -159,6 +164,7 @@ func Status(ElevStatus chan<- StatusStruct, StatusBroadcast chan<- StatusStruct,
 	}
 }
 
+//Used to initialize a new elevator in @param status with the gven paramters
 func initNewElevator(elevName string, status *StatusStruct, Behaviour string, Floor int, Direction string, cabRequests []bool) {
 	if elevName == "" {
 		fmt.Println("invalid elevator name")

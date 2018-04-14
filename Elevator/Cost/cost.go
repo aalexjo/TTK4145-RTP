@@ -5,7 +5,6 @@ and then assigning all orders to the elevators accordingly. This module communic
 receives and transmits its information. The status from the Status module is converted to JSON-format and the executable hall_request_assigner is run.
 The result is then converted back and sent to the Fsm.*/
 import (
-	//"io"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 
 var FLOORS int
 var ELEVATORS int
+//var Mtx sync.Mutex = sync.Mutex{}
 
 type AssignedOrderInformation struct {
 	AssignedOrders map[string][][]bool
@@ -25,8 +25,10 @@ type AssignedOrderInformation struct {
 func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.StatusStruct) {
 	for {
 		select {
-		case status := <-ElevStatus:
-			arg, err := json.Marshal(status)
+		case state := <-ElevStatus:
+			status.Mtx.Lock()
+			arg, err := json.Marshal(state)
+			status.Mtx.Unlock()
 			if err != nil {
 				fmt.Println("error:", err)
 			}
@@ -39,11 +41,13 @@ func Cost(FSMinfo chan<- AssignedOrderInformation, ElevStatus <-chan status.Stat
 			orders := new(map[string][][]bool)
 			json.Unmarshal(result, orders)
 
+			status.Mtx.Lock()
 			output := AssignedOrderInformation{
 				AssignedOrders: *orders,
-				HallRequests:   status.HallRequests,
-				States:         status.States,
+				HallRequests:   state.HallRequests,
+				States:         state.States,
 			}
+			status.Mtx.Unlock()
 			FSMinfo <- output
 		}
 	}

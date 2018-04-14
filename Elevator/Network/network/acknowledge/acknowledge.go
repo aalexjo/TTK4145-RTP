@@ -42,8 +42,7 @@ type SentMessages struct {
 
 type AckStruct struct {
 	AckMessage AckMsg
-	AckTimer   *time.Timer //Attaching a timer to each ack message.
-}
+	AckTimer   *time.Timer
 
 type UpdateMessageStruct struct {
 	Message status.UpdateMsg
@@ -64,7 +63,6 @@ var statusMessageToSend StatusMessageStruct
 var sentMessages = new(SentMessages)
 var peerlist peers.PeerUpdate
 
-//TODO: should these be private variables -> change starting letter to lower case
 var TXupdate = make(chan UpdateMessageStruct)
 var TXstate = make(chan StatusMessageStruct)
 var RXupdate = make(chan UpdateMessageStruct)
@@ -123,8 +121,6 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				_mtx.Lock()
 				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Resend if sent <10 times
-					fmt.Println("Not received ack - resending")
-					fmt.Println(sentMessages.NotRecFromPeer)
 					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 					updateMessageToSend.SeqNo = notReceivedAck.SeqNo
 					TXupdate <- updateMessageToSend
