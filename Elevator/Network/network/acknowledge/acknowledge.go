@@ -70,7 +70,7 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " ACK fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+PORT, " -id="+ID)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+PORT+" -id="+ID).Run()
+			err := exec.Command("sh", "-c", "go run main.go -init=false -port="+PORT+" -id="+ID).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
@@ -96,10 +96,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 				SeqNo:   update.SeqNo,
 				MsgType: 0,
 			}
-			AckSendChan <- ackMessage
 			if update.Message.Elevator != ID {
 				newUpdate <- update.Message
 			}
+			AckSendChan <- ackMessage
 
 		case status := <-RXstate:
 			ackMessage := AckMsg{

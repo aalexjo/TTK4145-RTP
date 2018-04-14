@@ -31,7 +31,7 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run()
+			err := exec.Command("sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run() //if not running a compiled project add "gnome-terminal", "-x", as the first paramters
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}

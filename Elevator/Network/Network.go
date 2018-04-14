@@ -16,7 +16,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 
 	newUpdate := make(chan status.UpdateMsg)
 	newStatus := make(chan status.StatusStruct)
-	ackPeerUpdate := make(chan peers.PeerUpdate)
+	ackPeerUpdate := make(chan peers.PeerUpdate, 2)
 
 	go acknowledge.Ack(newUpdate, newStatus, ackPeerUpdate)
 	// We make a channel for receiving updates on the id's of the peers that are
@@ -38,9 +38,7 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			fmt.Printf("  Peers:    %q\n", peerlist.Peers)
 			fmt.Printf("  New:      %q\n", peerlist.New)
 			fmt.Printf("  Lost:     %q\n", peerlist.Lost)
-			fmt.Println("before")
 			ackPeerUpdate <- peerlist
-			fmt.Println("after")
 			if peerlist.Lost != "" {
 				update := status.UpdateMsg{
 					MsgType:  5,
@@ -54,14 +52,13 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
-			if update.MsgType == 8 { //update.Direction == "stop" && update.MsgType == 3 {
+			if update.MsgType == 8 {
 				peerTxEnableVar = false
 				peerTxEnable <- peerTxEnableVar
 				continue
 			} else if peerTxEnableVar == false && update.MsgType == 2 {
 				peerTxEnable <- true
 			}
-			println("update type:", update.MsgType)
 			acknowledge.SendUpdate(update)
 
 			StatusUpdate <- update

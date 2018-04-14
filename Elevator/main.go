@@ -43,7 +43,7 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r, " MAIN fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+id)
-			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "go run main.go -init=false -port="+port+" -id="+id).Run()
+			err := exec.Command("sh", "-c", "go run main.go -init=false -port="+port+" -id="+id).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
