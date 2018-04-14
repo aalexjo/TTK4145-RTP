@@ -53,7 +53,7 @@ func main() {
 		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
 	}
 
-	//Functionality for handling unexpected panic errors. Spawns another process and initializes the elevator from the previosly saved state.
+	//Functionality for handling unexpected panic errors. Spawns another process and initializes the elevator from the previosly saved state. Also checks that elevator server is running
 	defer func() {
 		if r := recover(); r != nil {
 			if r == "dial tcp 127.0.0.1:"+port+": getsockopt: connection refused" {
@@ -93,7 +93,7 @@ func main() {
 	select {}
 }
 
-//Ensures a smooth shutdown when program is killed
+//Ensures a smooth shutdown when program is killed from terminal. Currently it restarts the program 
 func atExit() {
 	sigchan := make(chan os.Signal, 10)
 	signal.Notify(sigchan, os.Interrupt)

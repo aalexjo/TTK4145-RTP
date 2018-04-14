@@ -51,10 +51,9 @@ func Network(StatusUpdate chan<- status.UpdateMsg, StatusRefresh chan<- status.S
 			}
 			if peerlist.New != "" {
 				acknowledge.SendStatus(<-StatusBroadcast)
-				//fmt.Println(<-StatusBroadcast)
 			}
 		case update := <-NetworkUpdate:
-			if update.MsgType == 8 {
+			if update.MsgType == 8 { //motor is broken, disconnect from network
 				peerTxEnableVar = false
 				peerTxEnable <- peerTxEnableVar
 				continue
