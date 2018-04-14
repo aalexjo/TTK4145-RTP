@@ -75,8 +75,8 @@ var TimeoutAckChan = make(chan AckMsg)
 func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct, peerUpdate <-chan peers.PeerUpdate) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println(r, " ACK fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+PORT, " -id="+ID)
-			err := exec.Command("sh", "-c", "go run main.go -init=false -port="+PORT+" -id="+ID).Run()
+			fmt.Println(r, " ACK fatal panic, unable to recover. Rebooting...", "./main -init=false -port="+PORT, " -id="+ID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "./main -init=false -port="+PORT+" -id="+ID).Run()
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}

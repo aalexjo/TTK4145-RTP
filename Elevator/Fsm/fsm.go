@@ -19,16 +19,18 @@ import (
 )
 
 var FLOORS int
+var ID string
+var PORT string
 
 //TODO: test motor failure. worries: behaviour=stop is not enough and elevator must disconnect from network
 //TODO: @aalexjo clean up the motor failure part, not sure what needs to stay or not :)
 
-func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool, elevID string, port string) {
+func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrderInformation, init bool) {
 	//Handling unexpected panic errors. Spawns a new process and initializing from a saved state.
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "go run main.go -init=false -port="+port, " -id="+elevID)
-			err := exec.Command("sh", "-c", "go run main.go -init=false -port="+port+" -id="+elevID).Run() //if not running a compiled project add "gnome-terminal", "-x", as the first paramters
+			fmt.Println(r, " -FSM fatal panic, unable to recover. Rebooting...", "./main -init=false -port="+PORT+" -id="+ID)
+			err := exec.Command("gnome-terminal", "-x", "sh", "-c", "./main -init=false -port="+PORT+" -id="+ID).Run() //if not running a compiled project add as the first paramters
 			if err != nil {
 				fmt.Println("Unable to reboot process, crashing...")
 			}
@@ -36,25 +38,27 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 		os.Exit(0)
 	}()
 
+	//----initializing variables and subroutines ----//
 	var updateMessage status.UpdateMsg
-	var elev_state cost.AssignedOrderInformation
+	var elevState cost.AssignedOrderInformation
 
-	updateMessage.Elevator = elevID
-	elev_state = <-FSMinfo
-	in_buttons := make(chan elevio.ButtonEvent)
-	in_floors := make(chan int)
-	in_floor_cont := make(chan int)
+	updateMessage.Elevator = ID
+	elevState = <-FSMinfo //this variable contains all information the FSM needs to operate and is constantly refreshed
+	buttonPress := make(chan elevio.ButtonEvent)
+	newFloor := make(chan int)
+	inFloor := make(chan int)
 
-	door_timed_out := time.NewTimer(3 * time.Second)
-	door_timed_out.Stop()
-	motor_timed_out := time.NewTimer(4 * time.Second)
-	motor_timed_out.Stop()
+	doorTimedOut := time.NewTimer(3 * time.Second)
+	doorTimedOut.Stop()
+	motorTimedOut := time.NewTimer(4 * time.Second)
+	motorTimedOut.Stop()
 
-	go elevio.PollButtons(in_buttons)
-	go elevio.PollFloorSensor(in_floors)
-	go elevio.PollFloorSensorCont(in_floor_cont)
+	go elevio.PollButtons(buttonPress)
+	go elevio.PollFloorSensor(newFloor)
+	go elevio.PollFloorSensorCont(inFloor)
 
-	if init {
+	//----initializing elevator----//
+	if init { //clean init
 		elevio.SetMotorDirection(elevio.MD_Down)
 		elevio.SetFloorIndicator(0)
 		elevio.SetDoorOpenLamp(false)
@@ -65,256 +69,214 @@ func Fsm(NetworkUpdate chan<- status.UpdateMsg, FSMinfo <-chan cost.AssignedOrde
 	L: //label loop in order to break the for loop
 		for {
 			select {
-			case floor := <-in_floors:
+			case floor := <-newFloor:
 				if floor == 0 {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					break L
 				}
 			}
 		}
-
 	} else { //recovering from initialized system
-		if elev_state.States[elevID].Behaviour == "doorOpen" {
-			door_timed_out.Reset(3 * time.Second)
+		updateMessage.Floor = elevState.States[ID].Floor
+		updateMessage.Behaviour = elevState.States[ID].Behaviour
+		updateMessage.Direction = elevState.States[ID].Direction
+		if elevState.States[ID].Behaviour == "doorOpen" {
+			doorTimedOut.Reset(3 * time.Second)
 		}
-		if elev_state.States[elevID].Behaviour == "moving" {
-			if elev_state.States[elevID].Direction == "up" {
+		if elevState.States[ID].Behaviour == "moving" {
+			if elevState.States[ID].Direction == "up" {
 				elevio.SetMotorDirection(elevio.MD_Up)
 			} else {
 				elevio.SetMotorDirection(elevio.MD_Down)
 			}
 		}
 	}
+
 	//Main loop in Fsm
 	for {
 		select {
-		case elev_state = <-FSMinfo: //New states from cost function
-			setAllLights(elev_state, elevID)
-			switch elev_state.States[elevID].Behaviour {
+		case elevState = <-FSMinfo: //New states from cost function
+			setAllLights(elevState, ID)
+			switch elevState.States[ID].Behaviour {
 			case "doorOpen":
-				if shouldStop(elev_state, elevID, elev_state.States[elevID].Floor) {
-					if clearAtCurrentFloor(elev_state, elevID, elev_state.States[elevID].Floor, NetworkUpdate) {
-						door_timed_out.Reset(3 * time.Second)
+				if shouldStop(elevState, ID, elevState.States[ID].Floor) {
+					if clearAtCurrentFloor(elevState, ID, elevState.States[ID].Floor, NetworkUpdate) {
+						doorTimedOut.Reset(3 * time.Second)
 					}
-					setAllLights(elev_state, elevID)
+					setAllLights(elevState, ID)
 				}
 			case "idle":
-				newDirection := chooseDirection(elev_state, elevID, elev_state.States[elevID].Floor)
+				newDirection := chooseDirection(elevState, ID, elevState.States[ID].Floor)
 				switch newDirection {
 				case elevio.MD_Stop:
-					if elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][0] ||
-						elev_state.AssignedOrders[elevID][elev_state.States[elevID].Floor][1] ||
-						elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
+					if elevState.AssignedOrders[ID][elevState.States[ID].Floor][0] ||
+						elevState.AssignedOrders[ID][elevState.States[ID].Floor][1] ||
+						elevState.States[ID].CabRequests[elevState.States[ID].Floor] { //check if any button in current floor is pressed
 						elevio.SetDoorOpenLamp(true)
-						door_timed_out.Reset(3 * time.Second)
+						doorTimedOut.Reset(3 * time.Second)
 
 						//Behaviour message
 						updateMessage.MsgType = 1
 						updateMessage.Behaviour = "doorOpen"
-						updateMessage.Elevator = elevID
+						updateMessage.Elevator = ID
 						NetworkUpdate <- updateMessage
 
-						clearAtCurrentFloor(elev_state, elevID, elev_state.States[elevID].Floor, NetworkUpdate)
-						setAllLights(elev_state, elevID)
+						clearAtCurrentFloor(elevState, ID, elevState.States[ID].Floor, NetworkUpdate)
+						setAllLights(elevState, ID)
 					}
 				case elevio.MD_Up:
 					elevio.SetMotorDirection(newDirection)
-					motor_timed_out.Reset(4 * time.Second)
+					motorTimedOut.Reset(4 * time.Second)
 
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "up"
-					updateMessage.Elevator = elevID
+					updateMessage.Elevator = ID
 					NetworkUpdate <- updateMessage
 
 					//Behaviour message
 					updateMessage.MsgType = 1
 					updateMessage.Behaviour = "moving"
-					updateMessage.Elevator = elevID
+					updateMessage.Elevator = ID
 					NetworkUpdate <- updateMessage
 				case elevio.MD_Down:
 					elevio.SetMotorDirection(newDirection)
-					motor_timed_out.Reset(4 * time.Second)
+					motorTimedOut.Reset(4 * time.Second)
 
 					//Direction Message
 					updateMessage.MsgType = 3
 					updateMessage.Direction = "down"
-					updateMessage.Elevator = elevID
+					updateMessage.Elevator = ID
 					NetworkUpdate <- updateMessage
 
 					//Behaviour message
 					updateMessage.MsgType = 1
 					updateMessage.Behaviour = "moving"
-					updateMessage.Elevator = elevID
+					updateMessage.Elevator = ID
 					NetworkUpdate <- updateMessage
 				}
 			case "moving":
 			}
-		case buttonEvent := <-in_buttons:
+		case buttonEvent := <-buttonPress: //button press occurs, simply forward this to the network module
 			/*------------Making update message ------------*/
 			if buttonEvent.Button < 2 { // If hall request
 				updateMessage.MsgType = 0
 				updateMessage.Button = int(buttonEvent.Button)
 				updateMessage.ServedOrder = false //Nytt knappetrykk
-				updateMessage.Elevator = elevID
-				updateMessage.Behaviour = elev_state.States[elevID].Behaviour
+				updateMessage.Elevator = ID
+				updateMessage.Behaviour = elevState.States[ID].Behaviour
 				updateMessage.Floor = buttonEvent.Floor
 			} else {
 				updateMessage.MsgType = 4 //Cab request
 				updateMessage.Floor = buttonEvent.Floor
 				updateMessage.Button = int(buttonEvent.Button)
-				updateMessage.Behaviour = elev_state.States[elevID].Behaviour
+				updateMessage.Behaviour = elevState.States[ID].Behaviour
 				updateMessage.ServedOrder = false //Nytt knappetrykk
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 			}
 			NetworkUpdate <- updateMessage
-		case floor := <-in_floors:
+		case floor := <-newFloor: //We arrive at new floor, check if we should stop and clear orders
 			/*--------------Message to send--------------------*/
 			updateMessage.MsgType = 2 //Arrived at floor
 			updateMessage.Floor = floor
-			updateMessage.Behaviour = elev_state.States[elevID].Behaviour
-			updateMessage.Elevator = elevID
+			updateMessage.Behaviour = elevState.States[ID].Behaviour
+			updateMessage.Elevator = ID
 			NetworkUpdate <- updateMessage
 
-			motor_timed_out.Stop()
+			motorTimedOut.Stop()
 			elevio.SetFloorIndicator(floor)
-			if shouldStop(elev_state, elevID, floor) {
+			if shouldStop(elevState, ID, floor) {
 				elevio.SetMotorDirection(elevio.MD_Stop)
-				clearAtCurrentFloor(elev_state, elevID, floor, NetworkUpdate)
+				clearAtCurrentFloor(elevState, ID, floor, NetworkUpdate)
 				elevio.SetDoorOpenLamp(true)
-				door_timed_out.Reset(3 * time.Second)
+				doorTimedOut.Reset(3 * time.Second)
 
 				//Behaviour message
 				updateMessage.MsgType = 1
 				updateMessage.Behaviour = "doorOpen"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
-				setAllLights(elev_state, elevID)
+				setAllLights(elevState, ID)
 			} else {
-				motor_timed_out.Reset(4 * time.Second)
+				motorTimedOut.Reset(4 * time.Second)
 			}
-
-		case <-door_timed_out.C:
+		case <-doorTimedOut.C: //door closes and new direction is evaluated
 			elevio.SetDoorOpenLamp(false)
-			newDirection := chooseDirection(elev_state, elevID, elev_state.States[elevID].Floor)
+			newDirection := chooseDirection(elevState, ID, elevState.States[ID].Floor)
 			switch newDirection {
 			case elevio.MD_Stop:
 				//Behaviour message
 				updateMessage.MsgType = 1
 				updateMessage.Behaviour = "idle"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
 			case elevio.MD_Up:
 				elevio.SetMotorDirection(newDirection)
-				motor_timed_out.Reset(4 * time.Second)
+				motorTimedOut.Reset(4 * time.Second)
 				//Direction Message
 				updateMessage.MsgType = 3
 				updateMessage.Direction = "up"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
 				//Behaviour message
 				updateMessage.MsgType = 1
 				updateMessage.Behaviour = "moving"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
 			case elevio.MD_Down:
 				elevio.SetMotorDirection(newDirection)
-				motor_timed_out.Reset(4 * time.Second)
+				motorTimedOut.Reset(4 * time.Second)
 				//Direction Message
 				updateMessage.MsgType = 3
 				updateMessage.Direction = "down"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
 				//Behaviour message
 				updateMessage.MsgType = 1
 				updateMessage.Behaviour = "moving"
-				updateMessage.Elevator = elevID
+				updateMessage.Elevator = ID
 				NetworkUpdate <- updateMessage
 
 			}
-		//case <-in_floor_cont:
-		//motor_timed_out.Reset(4 * time.Second)
-
-		case <-motor_timed_out.C: //if the elevator does not detect a floor sensor within 4 seconds
+		case <-motorTimedOut.C: //if the elevator does not detect a floor sensor within 4 seconds
 			//all other operation is interrupted (this needs not be the case)
 			currInfo := <-FSMinfo
-			lastFloor := currInfo.States[elevID].Floor
+			lastFloor := currInfo.States[ID].Floor
 			updateMessage.MsgType = 8
-			updateMessage.Elevator = elevID
-			//updateMessage.Direction = "stop"
+			updateMessage.Elevator = ID
 			fmt.Println("motor broke")
 			NetworkUpdate <- updateMessage
-			motor_timed_out.Reset(4 * time.Second)
-			motor_timed_out.Stop()
+			motorTimedOut.Reset(4 * time.Second)
+			motorTimedOut.Stop()
 			turnOffAllLights()
 
 		F:
 			for {
 				select {
-				case floor := <-in_floor_cont:
+				case floor := <-inFloor:
 					if floor != lastFloor {
 						break F
 					}
 				}
 			}
-			/*
-				//stop_blink_timer := time.NewTimer(1 * time.Second)
-				//toggle := false
-				//
-				// lastDir := currInfo.States[elevID].Direction
 
-				// F:
-				// 	for { //this block can simply be removed if it is desired that the elevator should still transmit orders while out of order
-				// 		select {
-				// 		case floor := <-in_floor_cont:
-				// 			if floor != lastFloor {
-				// 				fmt.Println("breakpls")
-				// 				updateMessage.MsgType = 2
-				// 				updateMessage.Elevator = elevID
-				// 				updateMessage.Floor = floor
-				// 				updateMessage.Direction = lastDir
-				// 				NetworkUpdate <- updateMessage
-				// 				break F
-				// 			}
-				// 			if lastDir == "up" {
-				// 				elevio.SetMotorDirection(elevio.MD_Up)
-				// 				motor_timed_out.Reset(4 * time.Second)
-				// 			} else {
-				// 				elevio.SetMotorDirection(elevio.MD_Down)
-				// 				motor_timed_out.Reset(4 * time.Second)
-				// 			}
-				// 			// case <-stop_blink_timer.C:
-				// 			// 	toggle = !toggle
-				// 			// 	elevio.SetStopLamp(toggle)
-				// 			// 	stop_blink_timer.Reset(1 * time.Second)
-				// 			// 	if lastDir == "up" {
-				// 			// 		elevio.SetMotorDirection(elevio.MD_Up)
-				// 			// 		motor_timed_out.Reset(4 * time.Second)
-				// 			// 	} else {
-				// 			// 		elevio.SetMotorDirection(elevio.MD_Down)
-				// 			// 		motor_timed_out.Reset(4 * time.Second)
-				// 			// 	}
-				// 		}
-				// 	}
-				// 	elevio.SetStopLamp(false)*/
-			fmt.Println(<-FSMinfo)
 		}
 	}
 }
 
 //Checks for any orders above current floor
-func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
+func requestsAbove(elevState cost.AssignedOrderInformation, ID string, reachedFloor int) bool {
 	for floor := reachedFloor + 1; floor < FLOORS; floor++ {
-		if elev_state.States[elevID].CabRequests[floor] {
+		if elevState.States[ID].CabRequests[floor] {
 			return true
 		}
 		for button := 0; button < 2; button++ {
-			if elev_state.AssignedOrders[elevID][floor][button] {
+			if elevState.AssignedOrders[ID][floor][button] {
 				return true
 			}
 		}
@@ -323,13 +285,13 @@ func requestsAbove(elev_state cost.AssignedOrderInformation, elevID string, reac
 }
 
 //Checks any orders below current floor
-func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reachedFloor int) bool {
+func requestsBelow(elevState cost.AssignedOrderInformation, ID string, reachedFloor int) bool {
 	for floor := 0; floor < reachedFloor; floor++ {
-		if elev_state.States[elevID].CabRequests[floor] {
+		if elevState.States[ID].CabRequests[floor] {
 			return true
 		}
 		for button := 0; button < 2; button++ {
-			if elev_state.AssignedOrders[elevID][floor][button] {
+			if elevState.AssignedOrders[ID][floor][button] {
 				return true
 			}
 		}
@@ -338,22 +300,22 @@ func requestsBelow(elev_state cost.AssignedOrderInformation, elevID string, reac
 }
 
 //Choose direction of travel
-func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string, floor int) elevio.MotorDirection {
-	switch elev_state.States[elevID].Direction {
+func chooseDirection(elevState cost.AssignedOrderInformation, ID string, floor int) elevio.MotorDirection {
+	switch elevState.States[ID].Direction {
 	case "stop":
 		fallthrough
 	case "down":
-		if requestsBelow(elev_state, elevID, floor) {
+		if requestsBelow(elevState, ID, floor) {
 			return elevio.MD_Down
-		} else if requestsAbove(elev_state, elevID, floor) {
+		} else if requestsAbove(elevState, ID, floor) {
 			return elevio.MD_Up
 		} else {
 			return elevio.MD_Stop
 		}
 	case "up":
-		if requestsAbove(elev_state, elevID, floor) {
+		if requestsAbove(elevState, ID, floor) {
 			return elevio.MD_Up
-		} else if requestsBelow(elev_state, elevID, floor) {
+		} else if requestsBelow(elevState, ID, floor) {
 			return elevio.MD_Down
 		} else {
 			return elevio.MD_Stop
@@ -365,16 +327,16 @@ func chooseDirection(elev_state cost.AssignedOrderInformation, elevID string, fl
 }
 
 //Called when elevator reaches new floor, returns true if it should stop
-func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor int) bool {
-	switch elev_state.States[elevID].Direction {
+func shouldStop(elevState cost.AssignedOrderInformation, ID string, floor int) bool {
+	switch elevState.States[ID].Direction {
 	case "down":
-		return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallDown] ||
-			elev_state.States[elevID].CabRequests[floor] ||
-			!requestsBelow(elev_state, elevID, floor))
+		return (elevState.AssignedOrders[ID][floor][elevio.BT_HallDown] ||
+			elevState.States[ID].CabRequests[floor] ||
+			!requestsBelow(elevState, ID, floor))
 	case "up":
-		return (elev_state.AssignedOrders[elevID][floor][elevio.BT_HallUp] ||
-			elev_state.States[elevID].CabRequests[floor] ||
-			!requestsAbove(elev_state, elevID, floor))
+		return (elevState.AssignedOrders[ID][floor][elevio.BT_HallUp] ||
+			elevState.States[ID].CabRequests[floor] ||
+			!requestsAbove(elevState, ID, floor))
 	case "stop":
 		fallthrough
 	default:
@@ -383,46 +345,46 @@ func shouldStop(elev_state cost.AssignedOrderInformation, elevID string, floor i
 }
 
 //Clear order only if elevator is travelling in the right direction. Returns true if an order has been cleared.
-func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string, floor int, NetworkUpdate chan<- status.UpdateMsg) bool {
+func clearAtCurrentFloor(elevState cost.AssignedOrderInformation, ID string, floor int, NetworkUpdate chan<- status.UpdateMsg) bool {
 	//For cabRequests
 	cleared := false
 	update := status.UpdateMsg{
 		MsgType:     4,
 		Floor:       floor,
 		Button:      2,
-		Behaviour:   elev_state.States[elevID].Behaviour,
-		Direction:   elev_state.States[elevID].Direction,
+		Behaviour:   elevState.States[ID].Behaviour,
+		Direction:   elevState.States[ID].Direction,
 		ServedOrder: true,
-		Elevator:    elevID,
+		Elevator:    ID,
 	}
-	if elev_state.States[elevID].CabRequests[elev_state.States[elevID].Floor] {
+	if elevState.States[ID].CabRequests[elevState.States[ID].Floor] {
 		NetworkUpdate <- update
 		cleared = true
 	}
 
 	//For hallRequests
 	update.MsgType = 0
-	switch elev_state.States[elevID].Direction {
+	switch elevState.States[ID].Direction {
 	case "up":
-		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
+		if elevState.HallRequests[elevState.States[ID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
 			cleared = true
 		}
-		if !requestsAbove(elev_state, elevID, floor) &&
-			elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
+		if !requestsAbove(elevState, ID, floor) &&
+			elevState.HallRequests[elevState.States[ID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
 			cleared = true
 		}
 	case "down":
-		if elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallDown)] {
+		if elevState.HallRequests[elevState.States[ID].Floor][int(elevio.BT_HallDown)] {
 			update.Button = int(elevio.BT_HallDown)
 			NetworkUpdate <- update
 			cleared = true
 		}
-		if !requestsBelow(elev_state, elevID, floor) &&
-			elev_state.HallRequests[elev_state.States[elevID].Floor][int(elevio.BT_HallUp)] {
+		if !requestsBelow(elevState, ID, floor) &&
+			elevState.HallRequests[elevState.States[ID].Floor][int(elevio.BT_HallUp)] {
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
 			cleared = true
@@ -439,11 +401,11 @@ func clearAtCurrentFloor(elev_state cost.AssignedOrderInformation, elevID string
 }
 
 //Updates all lights based on all orders from Cost module
-func setAllLights(elev_state cost.AssignedOrderInformation, elevID string) {
+func setAllLights(elevState cost.AssignedOrderInformation, ID string) {
 	for floor := 0; floor < FLOORS; floor++ {
-		elevio.SetButtonLamp(elevio.BT_Cab, floor, elev_state.States[elevID].CabRequests[floor])
+		elevio.SetButtonLamp(elevio.BT_Cab, floor, elevState.States[ID].CabRequests[floor])
 		for button := elevio.BT_HallUp; button < elevio.BT_Cab; button++ {
-			elevio.SetButtonLamp(button, floor, elev_state.HallRequests[floor][button])
+			elevio.SetButtonLamp(button, floor, elevState.HallRequests[floor][button])
 		}
 	}
 }
