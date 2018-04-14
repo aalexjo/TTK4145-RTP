@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"../../../Status"
@@ -57,6 +58,7 @@ type StatusMessageStruct struct {
 var ID string
 var PORT string
 var seqNo = 0
+var _mtx sync.Mutex = sync.Mutex{}
 var updateMessageToSend UpdateMessageStruct
 var statusMessageToSend StatusMessageStruct
 var sentMessages = new(SentMessages)
@@ -118,8 +120,11 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 		case notReceivedAck := <-TimeoutAckChan:
 			switch notReceivedAck.MsgType {
 			case 0: //UpdateMessages
+				_mtx.Lock()
 				_, ok := sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) { //Resend if sent <10 times
+					fmt.Println("Not received ack - resending")
+					fmt.Println(sentMessages.NotRecFromPeer)
 					updateMessageToSend.Message = sentMessages.UpdateMessages[notReceivedAck.SeqNo]
 					updateMessageToSend.SeqNo = notReceivedAck.SeqNo
 					TXupdate <- updateMessageToSend
@@ -134,7 +139,9 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 					}
 					go ackTimer(TimeoutAckChan, newAckStruct)
 				}
+				_mtx.Unlock()
 			case 1: //StatusMessages
+				_mtx.Lock()
 				_, ok := sentMessages.StatusMessages[notReceivedAck.SeqNo]
 				if ok && (sentMessages.NumberOfTimesSent[notReceivedAck.SeqNo] < 10) {
 					statusMessageToSend.Message = sentMessages.StatusMessages[notReceivedAck.SeqNo]
@@ -151,8 +158,10 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 					}
 					go ackTimer(TimeoutAckChan, newAckStruct)
 				}
+				_mtx.Unlock()
 			}
 		case recAck := <-AckRecChan:
+			_mtx.Lock()
 			_, ok := sentMessages.NotRecFromPeer[recAck.SeqNo] //In case the SeqNo has been deleted unexpectedly
 			if ok {
 				ind := stringInSlice(recAck.Id, sentMessages.NotRecFromPeer[recAck.SeqNo])
@@ -170,8 +179,11 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 					}
 				}
 			}
-		//Delete lost peer from NotRecFromPeer
-		case peerlist = <-peerUpdate:
+			_mtx.Unlock()
+			//Delete lost peer from NotRecFromPeer
+		case newpeerlist := <-peerUpdate:
+			_mtx.Lock()
+			peerlist = newpeerlist
 			if peerlist.Lost != "" {
 				for seqNo, peers := range sentMessages.NotRecFromPeer {
 					ind := stringInSlice(peerlist.Lost, peers)
@@ -180,12 +192,15 @@ func Ack(newUpdate chan<- status.UpdateMsg, newStatus chan<- status.StatusStruct
 					}
 				}
 			}
+			_mtx.Unlock()
 		}
 	}
 }
 
 //Function for sending update messages over the network. Adds the messages to the sentMessages struct. Spawns an ack-timer to wait for acks on the message.
 func SendUpdate(update status.UpdateMsg) {
+	_mtx.Lock()
+	defer _mtx.Unlock()
 	seqNo += 1
 	updateMessageToSend.Message = update
 	updateMessageToSend.SeqNo = seqNo
@@ -209,10 +224,13 @@ func SendUpdate(update status.UpdateMsg) {
 
 //Function for sending status messages over the network. Adds the messages to the sentMessages struct. Spawns an ack-timer to wait for acks on the message.
 func SendStatus(statusUpdate status.StatusStruct) {
+	_mtx.Lock()
+	defer _mtx.Unlock()
 	seqNo += 1
 	statusMessageToSend.Message = statusUpdate
 	statusMessageToSend.SeqNo = seqNo
 	TXstate <- statusMessageToSend
+
 	if len(peerlist.Peers) != 0 {
 		sentMessages.StatusMessages[seqNo] = statusMessageToSend.Message
 		sentMessages.NumberOfTimesSent[seqNo] = 1
