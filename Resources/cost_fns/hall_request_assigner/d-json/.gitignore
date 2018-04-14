@@ -1,9 +1,0 @@
-bench
-test
-test.txt
-main
-*.d.deps
-*.o
-*.lst
-trace.def
-trace.log
