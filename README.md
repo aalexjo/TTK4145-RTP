@@ -8,6 +8,7 @@ The program flow is seen below
 ![Program diagram](https://github.com/aalexjo/TTK4145-RTP/blob/master/Design/SanntidDiagram%20(2).png)
 
 The main task of the different modules are as follows:
+
 -Status: Save the current information of internal and network states
 
 -Cost: calculate what elevator is to execute what hall requests
@@ -16,6 +17,6 @@ The main task of the different modules are as follows:
 
 -Network: Transmit updates to other nodes on the netork and update status module.
 
- -Acknowledge: Garantuee delivery of updates to other connected elevators, even in the case of a bad network connection.
+ >-Acknowledge: Garantuee delivery of updates to other connected elevators, even in the case of a bad network connection.
  
  Each module, except Status, has a short memory span; meaning that they do not store state information locally, but rely on updates from other modules. FSM recives continues updates from Cost which recives continues updates from Status, these are only in scope for a short time before being discarded.
