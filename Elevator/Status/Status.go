@@ -31,7 +31,6 @@ JSON format for saving the status
 
 type UpdateMsg struct {
 	//encoding of relevant update information
-	//copy from network module
 	MsgType int
 	// 0 = hallRequest
 	// 1 = newBehaviour
