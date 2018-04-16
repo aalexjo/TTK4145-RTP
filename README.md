@@ -9,9 +9,13 @@ The program flow is seen below
 
 The main task of the different modules are as follows:
 -Status: Save the current information of internal and network states
+
 -Cost: calculate what elevator is to execute what hall requests
+
 -FSM: Run the elevator to its assigned floors and control lighting, recive button presses and other updates from the elevator.
+
 -Network: Transmit updates to other nodes on the netork and update status module.
+
  -Acknowledge: Garantuee delivery of updates to other connected elevators, even in the case of a bad network connection.
  
  Each module, except Status, has a short memory span; meaning that they do not store state information locally, but rely on updates from other modules. FSM recives continues updates from Cost which recives continues updates from Status, these are only in scope for a short time before being discarded.
