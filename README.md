@@ -1,29 +1,17 @@
 # TTK4145-RTP
 This is a repository containing the real time programming project in TTK4145.
 
-## TODO:
-1. Edit FSM
- *Handle broken motor
-2. Network
-  * Test ack implementation, add induvidule elevator acks
+Our design is based on a peer to peer principle where all elevators(nodes) have identical information if they are connected to the network. By using this assumtion we can use an identical cost function locally at each elevator and have them arrive at the same conclusion for what elevator is to execute what order. When a new elevator connects to the network it shares its entire state information with the network, and the network transmits their inforamtion back in order for everyone to have a consensus. 
 
-4. watchdog
-  * implement wachdog module that tracks all other modules, is able to terminate them if they crash or hang and spawn replacemnets
+The program flow is seen below
 
-5. Move everything over to the organization repo when finished 
+![Program diagram](https://github.com/aalexjo/TTK4145-RTP/blob/master/Design/SanntidDiagram%20(2).png)
 
-after
- -Clean up code and comments
- -add function comments
-
- if time.
-
- -implement stop button
- -implement obstruction
-
-
- ### ISSUES:
- - Broken motor seems to freeze the system
- -Uncomment status broadcast in Network when receiving new peer, this makes the ack module wait for a status message it never receives acks for.
- -Watchdog infinitely spawns new processes when started with bad port input(simulator is not running)
- -^however when running on another computer it seems to be unable to spawn the other process
+The main task of the different modules are as follows:
+-Status: Save the current information of internal and network states
+-Cost: calculate what elevator is to execute what hall requests
+-FSM: Run the elevator to its assigned floors and control lighting, recive button presses and other updates from the elevator.
+-Network: Transmit updates to other nodes on the netork and update status module.
+ -Acknowledge: Garantuee delivery of updates to other connected elevators, even in the case of a bad network connection.
+ 
+ Each module, except Status, has a short memory span; meaning that they do not store state information locally, but rely on updates from other modules. FSM recives continues updates from Cost which recives continues updates from Status, these are only in scope for a short time before being discarded.
