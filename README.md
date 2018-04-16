@@ -20,3 +20,6 @@ The main task of the different modules are as follows:
  >-Acknowledge: Garantuee delivery of updates to other connected elevators, even in the case of a bad network connection.
  
  Each module, except Status, has a short memory span; meaning that they do not store state information locally, but rely on updates from other modules. FSM recives continues updates from Cost which recives continues updates from Status, these are only in scope for a short time before being discarded.
+
+
+We are not the authers of bcast or peers but instead rely on the code written by @klasbo we also rely on hall_request_assigner written by @klasbo in the cost module. 
