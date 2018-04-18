@@ -43,6 +43,7 @@ type SentMessages struct {
 type AckStruct struct {
 	AckMessage AckMsg
 	AckTimer   *time.Timer
+}
 
 type UpdateMessageStruct struct {
 	Message status.UpdateMsg
