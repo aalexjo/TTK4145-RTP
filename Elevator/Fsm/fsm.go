@@ -388,7 +388,6 @@ func clearAtCurrentFloor(elevState cost.AssignedOrderInformation, ID string, flo
 			update.Button = int(elevio.BT_HallUp)
 			NetworkUpdate <- update
 			cleared = true//Attaching a timer to each ack message.
-}
 		}
 	case "stop":
 		update.Button = int(elevio.BT_HallDown)
